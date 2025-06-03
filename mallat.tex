@@ -84,18 +84,14 @@ So now the problem becomes figuring out how to compute $\expect_{x \sim p_\theta
 \subsection{GANs}
 GAN stands for Generative Adversarial Network, the original paper is by Goodfellow \& Bengio (2014). What you do is you construct two neural networks $G_{\theta_G}$ and $D_{\theta_D}$ and make their tasks adversarial to one another. $G$'s task is to generate images from noise $z \sim \mathcal N(0,1)$, and $D$'s task is to figure out which image was real vs generated. So to recap, $G: z \to \text{Images}$ and $D: \text{Images} \to [0,1]$, where your goal is that 
 \begin{align}
-	D(x) & = \begin{cases}
+	D_{ideal}(x) & = \begin{cases}
 		1 & \text{if } x \text{ is a real image}\\
 		0 & \text{if } x \text{ is a fake image}
 	\end{cases}
 \end{align}
 The loss function is
 \begin{align}
-	\mathcal L(\theta_D, \theta_G) & = \mathbb E_{x \sim p_{data}}[\log D(x)] + \mathbb E_{z \sim \text{Gaussian}}[\log (1 - D(G(z))]\\
-	\text{where } D(x) & = \begin{cases}
-		1 & \text{if } x \text{ is a real image}\\
-		0 & \text{if } x \text{ is a fake image}
-	\end{cases}
+	\mathcal L(\theta_D, \theta_G) & = \mathbb E_{x \sim p_{data}}[\log D(x)] + \mathbb E_{z \sim \text{Gaussian}}[\log (1 - D(G(z))]
 \end{align}
 What ends up happening in practice is that GANs almost always memorize the data instead of learning to gneerate. Another way of saying this is this is a difficult nash-equilibrium to obtain, or you see \textbf{mode collapse}. This is why people used them for image generation, and couldn't use them for physics data...\\
 \\
