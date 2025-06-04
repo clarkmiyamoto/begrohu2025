@@ -233,9 +233,13 @@ Recall we are attempting to denoise this process. In signal processing, your try
 \end{align}
 So given an observed noisy input $y_t$, can we construct a $\hat x$ (which takes in $y_t$) and yields $x$. We can use \textbf{Tweety's Formula} to construct the optimal denoiser
 \begin{theorem}
-	The optimal denoising of the OU process is
+	Finding the minimum of 
 	\begin{align}
-		\hat x (x_\sigma) = x_\sigma + \sigma^2 \nabla_{x_\sigma} \log p_\sigma (x_\sigma)
+		\mathbb E_{x,z} [||\hat x(y_t) - x||^2]
+	\end{align}
+	Ends up being 
+	\begin{align}
+		\hat x (x_\sigma) = \mathbb E[x | x_\sigma] =  x_\sigma + \sigma^2 \nabla_{x_\sigma} \log p_\sigma (x_\sigma)
 	\end{align}
 	Proof:
 	\begin{align}
@@ -245,17 +249,59 @@ So given an observed noisy input $y_t$, can we construct a $\hat x$ (which takes
 		\frac{\sigma^2 \nabla p_\sigma(x_\sigma)}{p_\sigma(x_\sigma)} &  = \int (-x_\sigma + x) p_\sigma(x | x_\sigma) dx & p(x) / p_\sigma(x_\sigma) = p_\sigma(x | x_\sigma)\\
 		& = - x_\sigma + \hat x(x_\sigma) 
 	\end{align}
-	where $g_\sigma(x_\sigma -x ) = C_\sigma e^{-||x_\sigma - x||^2 / 2\sigma^2}$ is a Gaussian distribution. You can now see where the fomrula comes from!
+	where $g_\sigma(x_\sigma -x ) = C_\sigma e^{-||x_\sigma - x||^2 / 2\sigma^2}$ is a Gaussian distribution. You can now see that the score naturally arises in denoising problems.
 \end{theorem}
-Plugging in Tweedy's Formula into the mean square error
-\begin{align}
-	\mathbb E_{x,z} [|| ]
-\end{align}
-As a machine learning person, once you see, "minimize square error", you should just plug that into a neural network and let it rip. So your loss function becomes
-\begin{align}
-	\mathcal L(\theta) =  \Big|\Big|\frac{\hat x_\theat(x_\sigma) - x}{\sigma^2}\Big|\Big|^2
-\end{align}
+As a machine learning person, once you see, "minimize square error", you should just plug that into a neural network and let it rip. So you should try to $\min_\theta \ell(\theta) = \min_\theta \mathbb E_{x,z}[|| \hat x_\theta (x_\sigma) - x||^2]$, and then by Tweedy's formula, at inference time you perform $\frac{\hat x_\theta(x) - x}{\sigma^2} = \nabla_{x_\sigma} \log p_\sigma (x_\sigma)$
 
+\subsubsection{Example of Denoising Gaussian}
+Consider the distribution $p_\sigma(x) = \frac{e^{- U_\sigma (x)}}{Z_\sigma}$, which means the score is $\nabla_x \log p_\sigma(x) = - \nabla_x U_\sigma(x)$. $p_\sigma$ is Gaussian when $U_\sigma(x) = \frac{1}{2}x^T C^{-1} x$. In this case let's choose a factorization $C \sigma = C + \sigma^2 \mathbb I$. Using Tweedy's Formula, our optimal denoiser (that is $\hat x(x_\sigma) \approx x$) is given by
+\begin{align}
+	\hat x(\sigma) & = [\mathbb I - (C + \sigma^2 \mathbb I)^{-1} \sigma] x_\sigma \\
+	& = (C + \sigma^2 \mathbb I)^{-1} (C + \sigma^2 \mathbb I  - \sigma^2 \mathbb I) \hat x)_\sigma  \\
+	& = (C + \sigma^2 \mathbb I)^{-1} C x_\sigma
+\end{align}
+So in this case, the optimal denoiser is found via a linear regression!
+
+\subsection{Generalization vs Memorization?} 
+We want to ask the question does the neural network actually find a score which generalizes beyond the training data? He explains a couple interesting tests \url{https://arxiv.org/abs/2310.02557}
+
+\subsection{Architecture of CNNs}
+In a lot of these problems, CNNs (specifically UNets) end up being the more successful architectures. So perhaps we should spend some time to deconstrucitng them.
+\\
+\\
+\subsubsection{Convolutional Operator}
+A convolutional operator (in ML), takes an image $(\text{Length, Width, Channels}) \to (\text{Length', Width', Channels'})$. Over pixel space $(\text{Length, Width})$ it applies a convolution, over channel space we apply a linear transformation. The $\ell$'th nodes are given by
+\begin{align}
+	x_{\ell + 1}(i, c') = \rho \left(\sum_{c \in \text{Channels}} \sum_{\tau \in {\text{\{1,2\}}}} W(\tau, c, c') x_\ell (i - \tau, c)] \right) + b
+\end{align}
+where $\rho$ is your activation function, $b$ is your bias. The $\sum_{c \in \text{Channels}}$ is the linear transformation between channel, and the $\sum_{\tau \in {\text{\{1,2\}}}}$ is the convolution. Notice that you can effectively reframe the operation inside of $\rho$ as a single linear operator.
+\\
+\\
+Traditionally, as you go deeper into the neural network, people will reduce the spatial dimension and increase the number of channels.
+
+\subsubsection{Explaining Bias in the Model}
+Now we want to explore they this architecture produces bias.
+
+If assume there's no bias $b=0$. The tweedy's formula 
+\begin{align}
+	\hat x = x_\sigma + \sigma^2 \underbrace{\nabla \log \tilde p_\sigma(x_\sigma)}_{\equiv s_\sigma (x_\sigma)}
+\end{align}
+Since $s_\sigma (x_\sigma)$ is piecewise linear, we can rewrite it as $s_\sigma (x_\sigma) = - \mathcal J_{s_\sigma}(x_\sigma) x_\sigma$. This means we can rewrite Tweedy's formula as
+\begin{align}
+	\hat x = \left ( \mathbb I + \sigma^2 \mathcal J_{s_\sigma}(x_\sigma) \right)x_\sigma
+\end{align}
+we can decompose the interior in an eigenbasis.
+\begin{align}
+	\hat x = \sum_k h_k \langle x_\sigma, \psi_k\rangle \psi_k
+\end{align}
+This means the difference between prediction $\hat x$ and the true value $x$, we get
+\begin{align}
+	||\hat x - x||^2 = \sum_{k} | \langle \hat x , \psi_k \rangle - \langle x, \psi_k \rangle | ^2
+\end{align}
+\begin{sidework}
+	Let's work through an example, let's take the probability distribution to be $p(x) = e^{- \frac{1}{2}x^T C_\sigma^{-1}x} / Z$ where $C_\sigma = C + \sigma^2 \mathbb I$. This means $\nabla^2 \log p(x) = -C_\sigma^{-1}$, which has eigenvalues $-\frac{1}{\beta k + \sigma^2}$
+\end{sidework}
+Mallat then presents some numerical experiments on visualizing these learned basis vectors (see \url{https://arxiv.org/pdf/2310.02557}).
 
 
 

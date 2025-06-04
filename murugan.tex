@@ -88,9 +88,30 @@ Consider $N$ molecular species in a solvent (this is different from the number o
 \end{align}
 This rule says, these molecules will increase their bond ($J_{ij}$ will increase) if there are more of said molecules in the same place ($C_i(x,t) C_j(x,t)$ is the concentrations of molecules $i$ and $j$ at position $x$ at time $t$).
 
-In practice, we need to use \textbf{linkers} (these are other molecules which mediate interactions between molecules). So they can be used to tune your $J_{ij}$'s.
+In practice, we need to use \textbf{linkers} (these are other molecules which mediate interactions between molecules). So they can be used to tune your $J_{ij}$'s. You can think of this has having a large interaction matirx $J$ (say 100 molecules), but you only observe a fraction of them yielding a tunable effective interaction matrix $\tilde J$ (say you actually only observe 10 molecules).
 
 The associative memory is to reconstruct a set of protein binded together. So you can construct a memory as a sequence of proteins, cut it up, place it into the test tube, and see if it can reconstruct the previous protein.
+
+\section{Expressitivity and Trainability}
+Now that we've covered a one to one mapping between a machine learning method and a biological system which has a similar.
+\subsection{Training of Molecular Networks}
+We can train molecular networks using the sleep-wake algorithm. At a high-level, the algorithm is similar to the expectaiton-maximization algorithm. In this case, you have two distributions defined by a Spin-Glass like distribution, one is trainable $Q_{w}$ and the other is target distribution $P$, you update your couplings $w$ according to the difference of two point functions.
+\begin{align}
+	\frac{\partial D_{KL}(Q_{w} || P)}{\partial w_{ij}} = \underbrace{\langle s_i s_j \rangle_P}_{\text{sleep}} - \underbrace{\langle s_i s_j \rangle_Q}_{\text{wake}}
+\end{align}
+
+
+\subsection{Potts Model of Molecular Networks}
+So, perhaps to make things more concrete, let's try to create a model of a molecular network. The molecules live in a test tube, so all interactions must occur at some real space $x \in \Lambda \subset \mathbb R^3$.  Consider the Potts Model. Configurations are which specifies of molecules $[N]=\{1,...,N\}$ are where, so the configurations are $\sigma: \Lambda \to [N]$. 
+\begin{align}
+	E = \sum_{x \in \Lambda} \sum_{x_n \in \partial x} J_{\sigma(x), \sigma(x_n)} + \sum_i \mu_i n_i(\sigma)
+\end{align}
+Where $J_{ij}$ is an interaction matrix between species (so $i = 1,..., N$ number of species), $\sum_{x_n \in \partial x}$ is a sum over the spatial neighbors of $x$, $\mu_i = - \log c_i$ is the chemical potential of species $i$ (which is the negative log of the concentration, and $n_i$ is the number of species at $\sigma$.
+
+\subsection{Place Models}
+Consider an Ising model of $N$ spins on a lattice. The place model now does all possible permutations of the spins with the same lattice structure.
+
+
 
 
 
