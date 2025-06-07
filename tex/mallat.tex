@@ -159,7 +159,7 @@ However, what if we want to stop thinking about transporting just particles, but
 \end{align}
 Why would you want to do this? In metrology, it's quite difficult to make a point estimate of the future (due to chaoticity of fluid dynamics), so instead what if we make a probabilistic inference! This frame work more well posed! 
 
-\subsection{Score Based Diffusion}
+\section{Score Based Diffusion}
 If you want to add diffusion, you recover the \textbf{Fokker Planck Equation}
 \begin{align}
 	\frac{\partial p_t}{\partial t} = - \nabla \cdot (p_t(x) v_t) - \Delta \left(\frac{1}{2} \sigma^2(x) p_t(x) \right)\iff dx_t = v_t(x_t) dt + \sigma dW_t \label{eqn:FokkerPlanck}
@@ -301,7 +301,194 @@ This means the difference between prediction $\hat x$ and the true value $x$, we
 \begin{sidework}
 	Let's work through an example, let's take the probability distribution to be $p(x) = e^{- \frac{1}{2}x^T C_\sigma^{-1}x} / Z$ where $C_\sigma = C + \sigma^2 \mathbb I$. This means $\nabla^2 \log p(x) = -C_\sigma^{-1}$, which has eigenvalues $-\frac{1}{\beta k + \sigma^2}$
 \end{sidework}
-Mallat then presents some numerical experiments on visualizing these learned basis vectors (see \url{https://arxiv.org/pdf/2310.02557}).
+Mallat then presents some numerical experiments on visualizing these learned basis vectors (see \url{https://arxiv.org/pdf/2310.02557}, same link as the previous one).
+
+\section{Wavlets}
+\subsection{Optimal Denoising}
+Consider observing a noisy signal $y = x + z$, where $x$ is the true signal, and $z \sim \mathcal N(0, \sigma^2 \mathbb I)$. Our objective is to find a prediction for the true signal $\hat x = H y$ which is a linear function of the noisy signal. We want this predictor to minimize $\epsilon^2 = \mathbb E[|| H y - x ||^2]$.
+\begin{theorem}
+	[Wiener Filter] The Winer Filter is
+	\begin{align}
+		H = (C + \sigma^2 \mathbb I)^{-1}C
+	\end{align}
+	It has eigenvalues \begin{align}
+		\frac{\beta k}{\beta k + \sigma^2} \in [0,1]
+	\end{align}
+	
+	You can show that this predictor minimizes the correlation $\mathbb E[(\hat x - x) y]$
+\end{theorem}
+\begin{definition}
+	[PCA Basis] Consider the basis vectors $\{\psi_k\}_k$ comparised of wavelets
+	\begin{align}
+	\psi_k(n) & = \frac{1}{\sqrt{d}} e^{i 2\pi n k/d}\\
+	\langle C \psi_{k'}, \psi_k\rangle & = \beta k = \mathbb E[|\langle x, \psi_k \rangle|^2]
+	\end{align}
+	
+\end{definition}
+So, now we can change of basis our true signal $H y = \sum_k h_k \langle y, \psi_k\rangle \psi_k$. So now how do we construct the coefficients $h_k$?
+
+\begin{align}
+	x & = \sum_k \langle x, \psi_k \rangle \psi_k\\
+	\mathbb E ||Hy - x ||^2 & =  \sum_k \mathbb E \Big| \Big | (\lambda_k(x)  + 1) \langle x, \psi_k \rangle + h_k \langle z, \psi_k \rangle \Big| \Big|^2 & \text{Using } y = x + z\\
+	& =  \sum_k  \Big| \Big | (\lambda_k(x)  + 1) \langle x, \psi_k \rangle + h_k \sigma^2 \Big| \Big|^2
+\end{align}
+Now I can optimize to find the minimum of this quantity...
+\begin{align}
+	0 = \partial_{h_k} \mathbb E ||Hy - x ||^2 &  \implies h_k = \frac{|\langle x, \psi_k \rangle|^2}{|\langle x | \psi_k\rangle|^2 + \sigma^2} & \text{Minimizer}\\
+	\therefore \epsilon & = \sum_k \frac{ \sigma^2 |\langle x, \psi_k \rangle|^2}{|\langle x, \psi_k \rangle|^2 + \sigma^2}
+\end{align}
+
+\subsubsection{Binary Basis}
+Ok how does the error change if I only allow for binary decisions on the coefficients (that is you either have that basis element on or off)
+\begin{align}
+	\lambda_k = \begin{cases}
+		1 & |\langle x, \psi_k \rangle| \geq \sigma\\
+		0 & |\langle x, \psi_k \rangle| < \sigma
+	\end{cases}
+\end{align}
+What ends up happening is
+\begin{align}
+	\epsilon^2 = \sum_k [(\lambda_k - 1)^2 |\langle x, \psi_k \rangle|^2 + \lambda_k \sigma^2]
+\end{align}
+If we use the fact $\frac{1}{2}\min(a,b) \leq \frac{ab}{a+b} \leq \min(a,b)$, we can show 
+\begin{align}
+	\epsilon_m \leq \epsilon^2 \leq 2 \epsilon_m
+\end{align}
+so basically you only loose a factor of two...
+
+\subsubsection{Thresholded}
+What if you consider the expansion
+\begin{align}
+	Hy = \sum_k \text{sth}_T(\langle y, \psi_k \rangle ) \psi_k\\
+	\text{sth}_T(a) = \begin{cases}
+		a - \text{sign}(a) T & |a| > T\\
+		0 & |a|< T
+	\end{cases}
+\end{align}
+If we set $T = \sigma \sqrt{2 \log d}$, you can show
+\begin{align}
+	\epsilon_m \leq \epsilon \leq (2 \log d +1) [\epsilon_m + \sigma^2]
+\end{align} 
+You can also show that you cannot do asymptotically better as $d \to \infty$. So this choice is optimal.
+
+\subsection{Compression}
+In practice, denoising and compression end up being similar tasks. So if you have a good denoising basis, you should try it out on compression. Why is this? Consider the problem where e want to minimize the error
+\begin{align}
+	\epsilon _m \sim \epsilon_b & = \sum_k \min(|\langle x, \psi_k \rangle|^2 , \sigma^2)\\
+	& = M \sigma + 2 \sum_{|\langle x, \psi_k | > \sigma^2} |\langle x, \psi_k \rangle |^2
+\end{align}
+So imagine you want to construct a approximation $x_M$ for signal $x$ 
+\begin{align}
+	x = \sum_{k=1}^d \langle x, \psi_k \rangle \psi_k\\
+	x_M = \sum_{k \in I_M} \langle x, \psi_k \rangle \psi_k\\
+	\therefore || x - x_M ||^2 = \sum_{k \notin I_M} |\langle x, \psi_k \rangle|^2
+\end{align}
+Well $I_M = \{ k: |\langle x, \psi_k \rangle | \geq \sigma \}$
+
+\section{Wavelet Slides}
+Since we're trying to denoise a time series signal. There are often discontinuous jumps, yet high frequency noise. So we want to construct a basis where we can pick out high frequency noise, yet also have short time scale. Fourier transforms work entirely in frequency or time basis, wavelets allows us to go "somewhere in between"...\\
+\\
+Let's begin with the simple Haar wavelet
+\begin{align}
+	\{ \psi_{j,n}(t) = \frac{1}{\sqrt{2^j}} \psi( \frac{t - 2^j n}{2^j})\}_{(j,n) \in \mathbb Z^2} 
+\end{align}
+This forms an orthogonal basis of $L^2(\mathbb R)$
+
+\section{Renormalization Group \& Hierarchies}
+We start by recalling physics. Consider a physical state at equilibrium $x \in \mathbb R^d$. You'll measure the states according to a Gibbs distribution
+\begin{align}
+	p_t(x) = \frac{e^{-U_t(x)}}{Z}
+\end{align}
+Our goal is to find a parameterized version of $U(x)$. Often $U(x)$ is not convex, the associated hessian is singular (non-invertible), and it'll emit long-range correlations. Thinking about these correlations, this will depend on the "scale" that we probe at, which we'll denote by $t$. This motivates the usage of the \textbf{renormalization group}.
+\\
+\\
+There are perhaps naive ways of performing RG (Kadnoff RG / Real Space RG).
+\\
+\\
+Suppose your ansatz $U_t(x) = \langle O_t, \phi(x)\rangle$. So now let's ask the question, how do we go from $p_{j-1} \to p_j$ (that is change scales). Let $x_{j-1} = (x_j, \bar x_j)$ (kept variables, and complement of kept variables which are orthogonal) (orthognality is prevent Jacobian from popping out). We can now simply integrate out $\bar x_j$ and have the effective theory
+\begin{align}
+	\int p_{j-1}(x_j, \bar x_j) d\bar x_j = p_j(x_j)
+\end{align}
+and we'd hope that calculation of sufficient statistics is preserved
+\begin{align}
+	\langle \mathcal O(x_j)\rangle_{p_j} = \langle \mathcal O(x_j, \bar x_j) \rangle_{p_{j-1}} & & \text{(which holds up until the "scale")}
+\end{align}
+
+\begin{sidework}
+	In Wilsonian RG, you end up performing the calculation
+\begin{align}
+	p_{j-1}(x_{j-1}) = p_{j-1}(x_j, \bar x_j) = p_j (x_j) \bar p_j (\bar x_j | x_j)
+\end{align}
+where you have created $\bar{p}_j$ s.t. it is convex and local. \\
+\\
+For notational simplicity let's denote
+\begin{align}
+	\bar p_j(\bar x_j | x_j) = \frac{e^{-\bar U_j(\bar x_j , x_j)}}{\bar Z_j}
+\end{align}
+and now you can see $U_{j-1}(x_{j-1}) = U_j(x_j) + \bar U_j(\bar x_j, x_j)$.\\
+\end{sidework}
+In diffusion, you never want to calculate the transition between $p_{t=0}$ and $p_{t=T}$ (Gaussian to target distribution), we want to break it up into little steps (aka annealing)
+\begin{align}
+	p_0(x_0) = p_T(x_T) \prod_{j=T}^1 \bar p_j(\bar x_j | x_j)
+\end{align}
+So intead of computing $O_0$ in $U_0 = \langle O_0, \phi(x)\rangle$. You want to instead of compute $\{O_s : \bar O_j\}_{1 \leq j \leq T}$.
+
+
+\subsubsection{Sampling}
+We use Langevin 
+\begin{align}
+	dx_t = \nabla \log p(x) + \sqrt{2} dW_t
+\end{align}
+When you're using a maximum entropy model $p(x) \propto e^{-U(x)}$
+\begin{align}
+	dx_t = - U(x) + \sqrt{2}dW_t
+\end{align}
+\begin{itemize}
+	\item If $U(x)$ is convex, your mixing time is proportional to the condition number of the Hessian (associated with $U$)
+	\item If $U(x)$ is not convex, it'll still converge, but it'll take a long time...
+\end{itemize}
+\begin{sidework}
+	For example, we can consider using wavlets on a gaussian
+	\begin{align}
+		p_0(x) = \frac{e^{-U}}{Z}
+	\end{align}
+	Where $U(x) = x^T K x /2 = (K)^T (\frac{1}{2}x^T x) = \langle O, \phi(x)\rangle$. This means $U(x)$ is convex, and therefore mixing time is set by the condition number is set by $K$. \\
+	\\
+	\textcolor{blue}{[Mallat makes a point that wavelets keep this condition number invariant as you vary the scale... Meaning, perform the orthognal decomposition $x_{j-1} = (x_j, \bar x_j)$ using wavelets, and now your $K_{j-1} \to \bar K_j$ should keep the same condition number. This seems a bit nontrivial to me, and I'm not sure how to see this...]}\\
+	\\
+	In physics this is called renormalization. In machine learning language this is called batch-normalization.
+\end{sidework}
+
+\subsubsection{Training}
+We perform maximum likelihood to find the parameters. We accomplish this by minimizing the KL divergence. 
+So let the loss function be
+\begin{align}
+	\ell(\theta) & = \text{KL}(p |p_\theta)\\
+	& = - \mathbb E_{x \sim p}[\log p_\theta] + (\text{Constant w.r.t. }\theta)
+\end{align}
+If $U = \langle \theta, \phi(x)\rangle$, then $\nabla^2 \ell(\theta) = \text{Cov}_{p_\theta}[\phi]$
+
+\section{Continuous Ising, $\phi^4$ Model}
+Consider the target distribution defined by $U_0(x) = \frac{1}{2} x^T K x + \sum_i V(x(i))$. In particular let's focus on the case $V(x) = \sum_a \alpha_k p_k(a)$. So in the $U = \langle O, \phi(x)\rangle$ formulation, $O = (K, \alpha_k)$ and $\phi(x) = (x^T x, \sum_i x^k(i))$. \\
+\\
+Experiments in \url{https://arxiv.org/abs/2207.04941} show that this works well!
+
+\section{Can we use this in other things?}
+See Wavelet Score-Based Generative Modeling, Learning Multi-scale local conditional probability model of images, scattering spectral models for Physics.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

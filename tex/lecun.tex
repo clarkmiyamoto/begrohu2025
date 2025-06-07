@@ -1,0 +1,187 @@
+\section{Overview: A Path to Advance Machine Intelligence}
+We begin with a question: why do we want to build systems that are as smart as humans? The answer is trivial lol. Obviously if they're too smart, we will live in dystopia. So the question becomes how do we construct machines with human-level intelligence? By this, he means algorithms which can generalize their knowledge to solve new problems in zeros shot. Yann believes this can be answered by \textbf{self-supervised learning.} 
+
+He motivates his answer by noting a few things that occur in nature
+\begin{itemize}
+	\item Humans \& animals seem to do something quite close to self-supervised. And they are quite good at zero-shot tasks.
+	\begin{itemize}
+		\item I.e. look at the amount of visual data that a baby sees in it's first 4 years of life, compared to the amount of data to train a SOTA LLM. They're comparable. But the baby can do zero shot tasks, LLMS are more good at doing lookup.
+	\end{itemize}
+\end{itemize}
+
+\subsection{What is an Energy Based Model (EBM)}
+Traditionally, we preform inference via a \textbf{feedforward model}. That is you run
+\begin{align}
+	\hat y  = (f_1 \circ f_2 \circ ... \circ f_n )(x)
+\end{align}
+However, you are limited by the architecture, for any inference (simple or complex) you are set to do $n$ computations. I.e. why should asking an LLM "does 2+2 =4?" use the same amount of computation as "is P=NP?". 
+\\
+\\
+This leads us to another method, which is performing \textbf{inference via optimization}.
+\begin{align}
+	\hat y = \text{argmin}_{y \in \mathcal Y} f(x,y)
+\end{align}
+Interestingly, you can also have multiple answers as well. For training such models, you make it learn the $f_\theta$ (the \textbf{energy function}). You train this function s.t. $f$ takes low values on the training data, and it takes higher values away from the training data. Obviously we have assumed some sort of locality, that is $|\nabla f| <  \text{Constant}$-- every model makes some assumptions, it more up to you. However, because inferences require an optimization, you kinda want some notion of locality, it'll makes the optimization much easier.
+\begin{sidework}
+	What is the difference between energy-based models and probabilistic models? Well if you assume a Gibbs measure, and set the Hamiltonian to the energy function, you get
+	\begin{align}
+		p(y |x) = \frac{e^{- \beta f(x,y)}}{Z}
+	\end{align}
+\end{sidework}
+You can also add latent parameters. Consider the energy function $E(x,y,z)$ where $z$ relates to hyper parameters of the model, etc. We can do $\min_{z\in \mathcal Z} E(x,y,z)$ are then use the resulting quantity as our new energy function.
+
+\subsubsection{Training EBMs}
+He shows how to train EBMs by walking through an Ising model example.\\
+\\
+A naive method is to just perform gradient descent
+\begin{align}
+	E(y) & = - \sum_{ij} w_{ij} y_i y_j\\
+	\frac{\partial E}{\partial w_{ij}} & = - y_i y_j\\
+	\therefore w_{ij} & \leftarrow w_{ij} + \epsilon (y_i y_j) & \text{Backprop Step}
+\end{align}
+However this is dumb, you only low energy at the specific $y$'s. You don't instill any locality. Instead do \textbf{contrastive methods}
+\begin{align}
+	w_{ij} \leftarrow w_{ij} + \epsilon (y_i y_j - \hat y_i \hat y_j)
+\end{align}
+In this case we sample $\hat y_i \in \mathcal Y$, and then move the energy function $f$ near them as well.. This allows the energy function to smoothly change. Obviously this particular method is crude, but you can implement smarter ways to do this... In summary, a contrastive method is one which not only lowers the energy function at the data point, but also lowers near by points as well...
+\\
+\\
+The other methods are \textbf{architectural}, that is you choose an architecture which is able to automatically do contrastive learning (i.e. bottleneck auto-encoders, transformers, etc.). And finally \textbf{regularized optimizations}.
+\\
+\\
+This is explained throughly in \url{https://arxiv.org/pdf/2101.03288}
+
+\subsubsection{Loss for Contrastive Learning}
+Going back to contrastive learning, let's see how to construct a loss. Given the EBM $f(x,y)$. We want to lower the energy at target point $(x,y)$, and increase the energy at $(\hat x, \hat y)$. 
+
+You can consider \textbf{triplet loss} $\mathcal L$
+\begin{align}
+	\mathcal L((x,y), ( x, \hat y)) = f(x,y)  + [m(y, \hat  y) - f( x, \hat y)]
+\end{align}
+It keeps similar labels together, and pushes dis-similar images away, as endowed by $m$.
+
+If you want to model probability distributions, can also choose the loss to be the negative loglikelihood. (This naming makes sense if you choose the Gibbs distribution $p(y|x) = \exp(- \beta f(x,y))/Z$).
+\begin{align}
+	\mathcal L((x,y), ( x, \hat y)) & = f_\theta(x,y) + \frac{1}{\beta} \log \int_{\mathcal Y} e^{-\beta f_\theta(x,y)} dy\\
+	\nabla_{\theta}\mathcal L & =  \nabla_\theta f - \mathbb E[\nabla_\theta f_\theta] \simeq \nabla_\theta f(x,y) - \nabla_\theta f(x,\hat y)
+\end{align}
+
+\subsubsection{Diffusion Models as Contrastive Methods}
+
+
+ 
+\subsection{What is a World Model}
+In this quest for better intelligence, we have motivated that living creates a world model inside their head. So the next-generation of machine intelligence should also copy the same. 
+
+Let's walk through a simple example. We can see the benefit of this approach when trying to create an agent which interacts with the world. Consider the following situation, you have an encoder $E : \text{Observations of World} \to \mathcal S_t$ a computational model of the world which takes in observations and actions $W: \mathcal S \times \text{Actions} \to \mathcal S$ and attempts to predict what the next state of the world is.  So an example of inference is
+\begin{align}
+	x_{t+1} = E^{-1}(W(x_t,  q))
+\end{align}
+where $x_t, x_{t+1} \in \mathcal S$ and $q \in \text{Actions}$. You can see this is like a optimal control problem, but we don't solve Hamilton Jacobi Equation, but instead learn the optimal result based on data.
+
+\subsection{How do I learn more}
+Read the following papers
+\begin{enumerate}
+	\item Opinion piece by Yann. \url{https://openreview.net/forum?id=BZ5a1r-kVsf}
+	\item SimCLR
+	\item (Hierarchical) JEPA
+	\item How to train your Energy Based Model
+	\item VicReg
+	\item MCR$^2$
+	\item MMCR
+\end{enumerate}
+
+\section{Jun 6th}
+Today we start with a simple example in the energy-based model framework. Here we set the energy function as the cost between label and predicted label.
+\begin{align}
+	E(y,z) = C(y, \text{Dec}(z))
+\end{align}
+where $C(a,b) = || a - b||^2$ is the cost, and $\text{Dec}(z) = Wz$ is a linear decoder. You can find the "free energy" of $y$ by minimizing over $z$
+\begin{align}
+	F(y)  = \min_z E(y,z)
+\end{align}
+\begin{sidework}
+	Here Yann walks us through a simple calculation of the information you gain from seeing the true distribution compared to your prior. In general, that quantity is the KL divergence (see \url{https://en.wikipedia.org/wiki/Kullback\%E2\%80\%93Leibler\_divergence\#Bayesian_updating}). In this case your prior is $p$ and your true distribution is $q$, and they go into the KL divergence as $\text{KL}(q,p)$.
+	
+	He does this because we want to minimize the information content of the latent variable. If you believe in data-science epistomology, you'd like your model to be as unbiased as possible, so you'd like to use this metric to make your prior as uninformed as possible.
+	
+	We can construct a loss function
+	\begin{align}
+		\mathcal L(q,y,w) & = \int_z q(z|y) E_w(y,z) + \frac{1}{\beta} \int_z q(z|y) \log \frac{q(z|y)}{q(z)}\\
+		\text{argmin}_q \mathcal L & = \frac{e^{-\beta E_w(y,z)}}{Z}
+	\end{align}
+\end{sidework}
+
+\subsection{Lagrangian Mechanics}
+Consider a feedforward network $f(x) = (f_T \circ ... \circ f_0)(x)$. We denote the internal activations as $z = \{z_0, ..., z_T\}$,There is a cost function
+\begin{align}
+	L(z,w,\lambda, y) = C(y, z_T) + \sum_{k=0}^T
+ \lambda_k (z_{k+1} - f_k(z_k; W_k)\end{align}
+where $\lambda_k$ are lagrange multiplier, $W_k$ is the weights associated with $f_k$. The backprop rules are
+\begin{align}
+	\frac{\partial L}{\partial \lambda_k} = 0 & \implies z_{k+1} = f_k(z_k; W_k)\\
+	\frac{\partial L}{\partial z_k} = 0 & \implies \lambda_k  = \frac{\partial f_k(z_k; W_k)}{\partial z_k} \lambda_{k+1}\\
+	\frac{\partial L}{\partial W_k}= 0 & \implies \frac{\partial C}{\partial W_k} +  \frac{\partial f_k (z_k; W_k)}{\partial W_k} \
+\end{align}
+So basically, he wanted to show that backprop constructs a canonical momentum? \textcolor{blue}{[I'm sorry Yann I don't see it, I'll have to go over this again. Which one is canonical position and momentum? I think it's $z$ is the position, and $\lambda$ is the momentum (as it is defined via a $z$ derivative). How do they define dual spaces?]}
+\subsection{}
+Consider the model $s_a = \text{Enc}(a)$ and a transformation $\hat s_y = f(s_x)$. Also consider we have a measure of information of the encoders $I(s_x)$, $I(s_y)$. We construct a loss function
+\begin{align}
+	\mathcal L = C(\hat s_y, s_y) + \lambda_x I(s_x) + \lambda_y I(s_y)
+\end{align}
+Yann spends some time to talk about different measures of information of the encoder. 
+\begin{enumerate}
+	\item You can assume $I(s) \in \mathbb R^d$, all dimensions are statistical independent. And here if you compute the entropy, it'll be an overestimate. 
+	\begin{itemize}
+		\item We can get around this by adding a regularizer in our loss function s.t. our encoder whitens the data / make it as independent as possible. \
+		\item 
+	\end{itemize}
+	\item We can att
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+hi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
