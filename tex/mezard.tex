@@ -1,0 +1,163 @@
+\section{Overview}
+\begin{enumerate}
+	\item Langevin-Fokker Planck \& Ornstien Uhlenbeck
+	\item Principles of Generative Diffusion
+	\item A simple case: Gaussian Data
+	\item Aside: Related approaches ODE and Stochastic Localization \& Interpolants
+	\item Intermission: Thermodynamic Score
+	\item A harder case: Curie Weiss
+	\item Speciation Transition: Classifier Free Guidance
+	\item Generalization vs Memorization
+\end{enumerate}
+
+\section{Recall: Stochastic Processes}
+\subsection{Langevin Equation}
+Let $x \in \mathbb R^d$, and has the state equation
+\begin{align}
+	\frac{dx}{dt} = F(x) + \eta(t)
+\end{align}
+where $F: \mathbb R^d \to \mathbb R^d$ is the force field, and $\eta(t)$ is a Gaussian with properties $\langle \eta(t)\rangle = 0$ and $\langle \eta(t) \eta(t') \rangle = 2 \delta(t - t')$. In stochastic process notation it is
+\begin{align}
+	dx_t = f(x) dt + \sqrt{2	} dW_t
+\end{align}
+\begin{sidework}
+	In general, Mezard will work in continuous time. However whenever we want to make a comment about implementations on a computer, we'll use the Ito descretization.
+	\begin{align}
+		x(t + \delta t) = x(t) + \delta t ~F(x(t)) + \int_{t}^{t + \delta t} d\tau \eta~ (\tau)
+	\end{align}
+	and
+	\begin{align}
+		\delta x = \delta t F(x(t)) + \sqrt{2 \delta t} z_t
+	\end{align}
+	where $z_t$ is a unit gaussian.
+\end{sidework}
+\begin{sidework}
+	Note the integral of the time-dependent gaussian is given by
+	\begin{align}
+		\langle y \rangle := \int_t^{t+\delta t} \eta (\tau) d \tau
+	\end{align}
+	has the following properties $\langle y \rangle = 0$ and $\langle y^2\rangle = 2 \delta t$.
+\end{sidework}
+\subsection{Fokker Planck}
+Consider the conditional distribution $p_t(x | x_0)$, the equation which keeps it probabliity distribution is the Fokker Planck equation
+\begin{align}
+	\frac{\partial p_t}{\partial t} = \Delta p_t - \nabla \cdot  (F p_t)
+\end{align} 
+where $F$ is a vector field. You can then ask what's condition of the stationary distribution, that is $\partial_t p_t = 0$, it must satisify
+\begin{align}
+	\Delta p_t + \nabla \cdot (p \nabla V) = 0\\
+	p_{stationary}(x') = \frac{1}{Z} e^{-V(x)}
+\end{align}
+Note that our usage of $\sqrt{2}$ in the previous section was to ensure we get a temperature $\beta = 1$.
+
+\subsection{Ornstein Uhlenbeck}
+This is when $V(x) = \frac{1}{2} |x|^2$. So the Langevin equation becomes
+\begin{align}
+	\dot x = F(x) + \eta(t) \implies \dot x = - x + \eta(t)
+\end{align}
+and your stationary distribution becomes
+\begin{align}
+	p_{st}(x) = e^{-|x|^2 / 2}
+\end{align}
+\begin{sidework}
+	For example, if you have $x(t=0) = a \in \mathbb R^d$. Then the solution to the Langevin becomes
+	\begin{align}
+		x(t) = a e^{-t} + \int_0^t e^{-(t-\tau)}\eta(\tau) d\tau
+	\end{align}
+	the second term is equivalent to the random variable $\mathcal N(0, 1-e^{-2t})$, and we'll notate $\Delta t = 1-e^{-2t}$.
+\end{sidework}
+So you can interpret this process as something which always goes to white noise.
+\subsection{General Time and Variance}
+Consider the equation
+\begin{align}
+	\frac{dx}{dt} = f(t) x(t) + g(t) \eta(t)
+\end{align}
+previously $g = 1$, but now $f: \mathbb R^d \to \mathbb R^d$ and $g: \mathbb R^d \to \mathbb R^d$. Solving the equation with the same boundary condtion as before ($x(t=0) = a)$, you get
+\begin{align}
+	x(t) & = a s(t) + s(t) \sigma(t) z(t)\\
+	& \text{s.t. }\begin{cases}
+		s(t) = \exp\left[ \int_0^t d\tau ~f(\tau) \right]\\
+		\sigma(t)^2 = 2 \int_0^t d\tau \left (\frac{g(\tau)}{s(\tau)} \right)^2
+	\end{cases}
+\end{align}
+\begin{sidework}
+	Example: Brownian Motion is recovered when $f=0$ and $g = 1$.
+\end{sidework}
+
+\section{Principals of Generative Diffusion}
+\begin{sidework}
+	For some background reading for this section there's: Sohl-Dickstein et al (2015), Yang Song \& Stefano Ermon (2019), and a Review by Ling Yang et al (ArXiv:2209.00796). 
+\end{sidework}
+In generative modeling, \emph{the problem setup} is that you have an a target distribution $p_0(a)$ s.t. $a\in \mathbb R^d$, however you only have an empirical estimation of said target distribution $\{a^\mu\}_{\mu=1}^n$ (and was assume $a^\mu$ was sampled iid from the target distribution). Your goal is to use a ML to reconstruct \& sample from the target distribution using only knowledge from the empirical distribution.
+
+\subsection{Forward Process}
+Let $a \in \mathbb R^d$ (where $a \sim p_0$), and $x(t=0) = a$. The forward process is the OU process, which we recall as 
+\begin{align}
+	\dot x = -x + \eta(t) \implies x(t) = a e^{-t} + \sqrt{\Delta_t} z_t
+\end{align}
+where $\Delta_t = 1 - e^{-2t}$.
+At time $t$ we say that $x \sim p_t(x)$ which has time evolution of the Langevin
+\begin{align}
+	\frac{\partial p_t}{\partial t} = \Delta p_t + \nabla \cdot (x p_t) \implies p_t(x) = \frac{e^{-(x-ae^{-t})/2\Delta_t}}{(2\pi \Delta_t)^{d/2}} =  \mathcal N(x; a e^{-t}, \Delta_t)
+\end{align}
+This means that if $a \sim p_0$, then we have a joint probabity distribution over $a$ and it's (partially) noised counter part $x$.
+\begin{align}
+	p_t(a,x) &= p_0(a) \mathcal N(x_t; ae^{-t} , \Delta_t)\\
+	p_t(x) &= \int da ~ p(a,x)\\
+	p(a | x_t) &= \frac{p(a)  \mathcal N(x; ae^{-t} , \Delta_t)}{\int d a' p_0(a') \mathcal N(x_t; a e^{-t}, \Delta t)}
+\end{align}
+
+\subsection{Backwards Process}
+To notate the backwards process, let's notate our time notation. Previously $t$ starts at 0, and ends at $t_f$. In our backwards process, $\tau$ starts at 0 (which corresponds to $t=t_f$) and ends at $\tau_f$ (which correspond to $t=0$). So $\tau = t_f -t$. If we plug in this coordinate change into our Langevin
+\begin{align}
+	-\frac{\partial p}{\partial \tau} & = \Delta p + \nabla \cdot(x p) \implies \frac{\partial p}{\partial \tau}  = -\Delta p - \nabla (x p) \label{eqn:Reverse_Langevin}
+\end{align}
+Ok, restarting from the general Fokker Planck
+\begin{align}
+	\frac{\partial p}{\partial \tau} = \Delta p - \nabla (F p)
+\end{align}
+What force-field $F$ do we need to recover the backwards process (\ref{eqn:Reverse_Langevin}). If you ansatz $F = x + 2 \nabla \log p$, you can recover the right thing. In general, if you want to undo the forward process (of OU process), the probability in the score is taken to be $p_{t_f-\tau }^F(x)$ (the probability of the forward process).\\
+\\
+In the case $t_f \gg 1$
+\begin{align}
+	p_{t_f}^F (x) & = \frac{e^{-x^2/2}}{Z}\\
+	\log p & = - \frac{x^2}{2} + C\\
+	\nabla \log p & = -x
+\end{align}
+In the case $t \simeq t_f \gg 1$
+\begin{align}
+	F(x) = x + 2 \nabla \log p = -x
+\end{align}
+\subsection{Comment on Discretization}
+See Ho Jain Abbeel (NeurIPS 2020).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

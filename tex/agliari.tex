@@ -6,5 +6,211 @@ We'll go over
 	\item Intro to Hebbian Networks
 	\item Hopfield Model
 	\item Restricted Boltzmann Machines and Hebbian Networks
-	\item 
+	\item Architectures
 \end{enumerate}
+
+\section{A Model for Neurons}
+Our story begins with a MC Oulloch (in 1943) trying to create a mathematical model for neurons. Neurons can be effectively described as nodes on a network
+\begin{itemize}
+	\item Edges of the graph physical correspond to "axon" (which are paths which connect neurons).
+	\item They fire electrical signals which in-turn will choose wether or not another neuron will fire.
+\end{itemize}
+Now let's mathematize this. A system of $\{x_i: x_i \in \{0,1\}_{i=1}^N$ neurons. They are coupled with strengths $\{J_i : J_i \in \mathbb R\}_{i=1}^N$ to an output neuron $y \in \{0,1\}$. The state equation of the system is
+\begin{align}
+	y = \Theta(U - U^*), ~~~ \text{s.t. }U = \sum_i J_i x_i
+\end{align}
+where $\Theta$ is the heaviside function, and $U^* \in \mathbb R$ is interpreted as the activation energy for the neuron to fire.\\
+\\
+However, neurons don't just point to one "god" neuron $y$, they all point towards each other (albeit sparsely). So our true state equation should be
+\begin{align}
+	x_i = \Theta (U_i - U_i^*),  ~~~ \text{s.t. }U_i =\sum_{j=1}^N J_{ij} x_j
+\end{align}
+Ok, this is all cool, but what if we want to generlaize our model a little more? (Specifically we'd like to recover a spin-glass system that way we can take advantage of our knowledge from statistical physics). So a couple things
+\begin{itemize}
+	\item Consider defining a random variable $z_i \sim \sigma_z$ where $\mathbb E[z] =0$ and $\mathbb E[z] =1$.
+	\item Instead of using binary variables $\underline x = (x_1, ..., x_N) \in \{0,1\}^N$, what if we could use ising-spin variables $\underline \sigma \in (\sigma_1, ..., \sigma_N) \in \{\pm 1\}^N$. We can transform between the two using	\begin{align}
+		x_i = \frac{1}{2} (1 + \sigma_i)
+	\end{align}
+\end{itemize}
+Using this transformaiton, we can rewrite our state equation in-terms of $\underline \sigma$
+\begin{align}
+	\sigma_i^{(t+1)} = \text{sgn}[\varphi_k^{(t)} + T z_i^{(t)}], ~~~ \text{s.t. } \varphi_i= \sum_j J_{ij}\sigma_i^{(t)} + h
+\end{align}
+
+
+\begin{definition}
+	The random variable $X \sim \text{Rad}(p)$ is defined to have the following properties
+	\begin{align}
+		\mathbb P(x=1) = 1 - \mathbb P(x = -1) = \frac{1+p}{2}
+	\end{align}
+\end{definition}
+\begin{hypothesis}
+	We assume the probability distribution over $p_Z$ is symmetric. That is $p_Z(-z) = p_Z(z)$
+\end{hypothesis}
+If we assume this hypothesis to hold, and define the following
+\begin{align}
+	g_Z(z) \equiv \int_{-\infty}^z p_Z(u) du = \mathbb P[Z < z]
+\end{align}
+We can show that probability of $\mathbb P [\sigma_i^{(t+1)} = \pm 1] = g_Z(\pm \frac{\varphi_i ^{(t)}}{T})$.
+\\
+\\
+Also some notation for the future, we'll notate $p_Z(z) \equiv \frac{1}{2}[1 -\tanh^2(z)]$ and therefore $g_Z(z) =  \frac{1}{2}[1 + \tanh(z)]$.
+
+\begin{definition}
+	[Update / Dynamics] 
+	We define two ways to perform dynamics
+	\begin{itemize}
+		\item Sequential. We select $i$ randomly, and update $\mathbb P[\sigma_i^{(t+1)}] = g(\sigma_i \varphi_i^{(t)} / T) $
+		\item Parallel. $\mathbb P[\sigma^{(t+1)}] = \prod_i g(\sigma)i \varphi_i^{(t)} / T)$
+	\end{itemize}
+\end{definition},
+Finally, we we assume the coupling matrix is symmetry $(J^T = J)$, $J_{ii} \geq 0$ and $h$ is stationary. Then the Lyaponov function
+\begin{align}
+	L = - \frac{1}{2} \underline \sigma^T J \underline \sigma - \underline h^T \underline\sigma
+\end{align}
+What's nice about this function is that is always is lowered with the dynamics we've asserted
+\begin{align}
+	\Delta L (\sigma, J) \leq 0
+\end{align}
+where $\Delta L$ is meant to be interpreted as a discrete difference in time $L(t=t'+\Delta t') - L(t=t')$. You can also show that $L$ is lower bounded.\\
+\\
+The result of all of this, if you run your update step, you can create a diagram which shows where you end up at fix points dependent on where you start. So if data is encoded in $\bar \sigma$, and data flows to fixed points (attractors) $\underline \xi$ depending on initialization--- we have created a classifier!
+\begin{definition}
+	[Attractor] We define the attractor $\xi \in \{\pm 1\}^N$, is the configuration of spins $\underline \sigma$ where you flow to a fixed point. So $\underline \xi \in \{\{ \{\pm 1\}^N\}^M$ is defines the set of attractors emitted by the model.
+\end{definition}
+
+ However, to make a \emph{good} classifier, we'd like to be able to tune/train our couplings $J$  s.t.
+\begin{itemize}
+	\item We can host a many attractors / stationary points
+	\item The radius between the initalization and the attract is big enough s.t. we can find attractors. Aka generalize. 
+\end{itemize}
+\begin{definition}
+	[Retrivial] A definition for when the network emits attractors
+	\begin{itemize}
+		\item (Strong Definition). $J = J(\xi)$ retries $\underline \xi$ staritng from $\underline \sigma$. 
+		\item (Weak Definition). $\underline \xi $ is $(\delta,\epsilon)$ stable. That is when your state enter a $\delta$-radius ball away from the attractor, it will forever stay within an $\epsilon$-radius ball to the attractor.
+\end{itemize}
+\end{definition}
+Ok, to make our life easier, assume we know what we want our attractors to be $\{\xi^\mu\}_{\mu =1}^K$, and all we need to do is tune our interaction matrix $J$. We can use \textbf{Hebb's Rule} to learn the parameters.
+\begin{definition}
+	[Hebb's Rule] Assert $J_{ij}  = \frac{1}{N}\sum_{\mu=1}^K \xi_i^\mu \xi_j^\mu$. The $1/N$ is to make the rule non-extensive in the number of spins $N$. We perform the update
+	\begin{align}
+		J^{(t+1)}_{ij} \leftarrow J_{ij}^{(t)} + \frac{1}{N} \xi_i \xi_j
+	\end{align}
+	We note that the time scale of the couplings $J$ is drastically different from the time scale of the neurons $\underline x$.
+\end{definition}
+
+\begin{sidework}
+	In the case the number of attractors is $K=1$.
+	\begin{align}
+		L(\underline \sigma) & = \frac{1}{2N}\sum_{ij} \sigma_i \sigma_j \xi_i \xi_j\\
+		& = - \frac{1}{2N} \sum_{ij} \tilde \sigma_i \tilde \sigma_j \geq - \frac{N}{2}
+	\end{align}
+	where the transformation we did was $\sigma_i \to \tilde \sigma_i \xi_i$. So we've recovered a Potts Model!
+\end{sidework}
+\begin{definition}
+	[Motts Magnetization] We define an overlap parameter
+	\begin{align}
+		m_\mu \equiv \frac{1}{N} \sum_i \tilde \sigma_i = \frac{1}{N} \sum_i \sigma_i \xi^\mu_i \in [-1, +1]
+	\end{align}
+	What is nice about this parameter is that it allows us to access the quality of retrivial. That is if your states $\underline \sigma$ actually go to the attractor $\underline \xi$, then $m_1 \to +1$. 
+\end{definition}
+\begin{theorem}
+	[Kohonen's Projector Rule]
+	If $J$ is s.t. $\sum_j J_{ij} \xi_j^\mu = \lambda \xi_i^\mu$ for $\lambda >0$ for all $i$. Then
+	\begin{align}
+		\text{sgn}(J \underline \xi^\mu)=  \text{sgn}( \lambda \underline \xi^\mu) = \underline \xi^\mu
+	\end{align}
+	This means that $\underline \xi$ is a fixed point of the dynamics.
+\end{theorem}
+\subsection{Noiseless Dynamics}
+Consider the following system
+\begin{align}
+	\xi^1 \varphi_i (\xi^1) > 0
+\end{align}
+If we expand this quantity this
+\begin{align}
+	\xi_i^1 \varphi_i(\xi^1) = \frac{\xi_i^1}{N} \sum_{j=1, j \neq i}^N \sum_\mu^K \xi_i^\mu \xi_j^\mu \xi_j^1 = \frac{N-1}{N} + \frac{1}{N} \sum_{\mu > 1} \sum_{j=1, j\neq i} \xi_i^1 \xi_i^\mu \xi_j^\mu \xi_j^1
+\end{align}
+We can see this leads to a signal-to-noise decomposition...
+
+
+\section{Jun 9th}
+Let $\underline \sigma = \{\pm 1\}^{N}$ bet a set of neurons, $\underline \xi^\mu \in \{\pm 1\}^N$ be the set of memories $\mu = 1,... , K$, and $J = \frac{1}{N} \xi \cdot \xi^T$ and $J_{ij} = \frac{1}{N} \sum_\mu \xi_i^\mu \xi_j^\mu$, with the update step
+\begin{align}
+	\underline\sigma^{(t+1)} = \text{sgn}(\underline \varphi^{(t)})\\
+	\varphi_i^{(t)} \equiv \varphi_i(\underline \sigma^{(t)}) = \sum_j J_{ij} \sigma_j^{(t)}
+\end{align}
+The question we'll be answering today is $\underline \sigma = \underline \xi^\mu$ a stable solution? For simplicity let's assume $K=1$, so $\mu=1$ is our target configuraton
+\begin{align}
+	\xi_i^1 = \sgn(\sum_k J_{ik} \xi_k^1)
+\end{align}
+
+\begin{align}
+	\xi_i^1 \sum_{j \neq i} J_{ij} \xi_{j}^1 = \underbrace{\frac{N-1}{N}}_{\mu=1, \text{ Term S}} + \frac{1}{N}\underbrace{\sum_{j \neq i} \sum_{\mu > 1, \text{ Term R}} \xi_i^1 \xi_j^1 \xi_i^\mu \xi_j^\mu}_{\mu > 1} \label{eqn:Jun9th_ExpandedTerm}
+\end{align}
+Note the second term is $\sqrt{(K-1)(N-1)}/N \approx \sqrt{K/N}$. So as long as $K/N \to_{N \to \infty} 0$, then the first term will be greater than the absolute value fo the second term.
+\begin{sidework}
+	Consider an initial configuration of the neurons $\underline \sigma^{(0)} = \underline \xi^\mu \odot \underline \chi^\mu$ where $\chi_i^\mu \sim \text{Rad}(p)$ (meaning $\mathbb P[\chi_i^\mu = \pm 1] = (1 + p)/2$) and $\odot$ is the Hammard product (element wise multiplication). This is supposed to be interpreted as a $\chi$ perturbation away from the memory $\underline \xi^\mu$.
+\end{sidework}
+\begin{sidework}
+Consider $\underline \sigma^{(0)} = \sgn(\underline \xi^1 + \underline \xi^2 + \underline \xi^3)$. You can show it is also stable under $K/N \to 0$.\\
+\\
+In General $\underline \sigma^{(0)} = \sgn(\sum_{\mu=1}^L\underline\xi^\mu )$ where $L$ is odd is stable under $K/N \to 0$.
+\end{sidework}
+So we've seen that $K/N$ is crucial to determining stability in the system. So let's give it a name
+
+\begin{definition} [Load] We define the \textbf{load} quantity
+	\begin{align}
+		\alpha \equiv \lim_{n \to \infty} \frac{K}{N}
+	\end{align}When 
+	\begin{itemize}
+		\item $\alpha = 0$, is \textbf{low load}. 
+		\item $\alpha > 0$ is \textbf{high-load}
+	\end{itemize}
+\end{definition}
+
+\subsection{Hopfield Model} 
+Consider the Hamiltonian
+\begin{align}
+	H_N(\underline \sigma; J) = - \frac{1}{N} \sum_{i < j} J_{ij} \sigma_i \sigma_j - \sum_i h_i \sigma_i\\
+	\mathcal H (\underline \sigma; J) = - \frac{1}{N} \sum_{i < j} \sum_\mu \xi_i^\mu \xi_j^\mu \sigma_i \sigma_j - \sum_\mu \sum_i \xi_i^\mu h_i \sigma_i
+\end{align}
+where $\xi_i^\mu \sim \text{Rad(0)}$. We also introduce some notation $\omega(\dot) = \sum_{\underline \sigma} (\cdot) P_N(\underline \sigma, \underlin \xi)$, $\mathbb E[\cdot] = \sum_{\underline \xi}(\cdot)$, and $\langle \cdot \rangle _N = \mathbb E \omega_N(\cdot)$. We also denoet hte Mattis Magnetization as $m_\mu \equiv \frac{1}{N} \sum_i \xi_i^\mu \sigma_i \in [-1, +1]$.
+
+So now going back to $\mathcal H$, we can rewrite it int this notation as
+\begin{align}
+	\mathcal H_N & = - \frac{1}{2N} \sum_{\mu} N m_\mu N m_\mu + \frac{1}{2} \sum_{\tau, \mu} (1) - \sum_\mu m_\mu N h_\mu\\
+	& = - \frac{N}{2} \underline m^2 + \frac{K}{2} - N \underline h^T \underline m
+\end{align}
+Now our goal is to compute $\langle m \rangle$. We can accomplish this by computing the free energy $f_N(\xi) = \frac{1}{N\beta} \log Z_n(\xi)$ and use it as the moment generating function.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
