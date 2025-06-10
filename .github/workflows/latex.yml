@@ -1,0 +1,36 @@
+name: Build & Publish LaTeX document
+on: [push]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@v4
+      
+      - name: Compile LaTeX document
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: tex/main.tex
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      
+      - name: Copy PDF to output folder
+        run: |
+          mkdir -p out
+          cp main.pdf out/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
