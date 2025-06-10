@@ -116,8 +116,13 @@ Ok, restarting from the general Fokker Planck
 \begin{align}
 	\frac{\partial p}{\partial \tau} = \Delta p - \nabla (F p)
 \end{align}
-What force-field $F$ do we need to recover the backwards process (\ref{eqn:Reverse_Langevin}). If you ansatz $F = x + 2 \nabla \log p$, you can recover the right thing. In general, if you want to undo the forward process (of OU process), the probability in the score is taken to be $p_{t_f-\tau }^F(x)$ (the probability of the forward process).\\
-\\
+What force-field $F$ do we need to recover the backwards process (\ref{eqn:Reverse_Langevin}). If you ansatz $F = x + 2 \nabla \log p$, you can recover the right thing. In general, if you want to undo the forward process (of OU process), the probability in the score is taken to be $p_{t_f-\tau }^F(x)$ (the probability of the forward process).
+\begin{sidework}
+	A comment on notation. The forward probability distribution $P_t^F(x)$ and the backwards probability distribution $P_\tau^B(x)$ are related via
+	\begin{align}
+		P_t^F(x) = p_{t_f - t}^B(x)
+	\end{align}
+\end{sidework}
 In the case $t_f \gg 1$
 \begin{align}
 	p_{t_f}^F (x) & = \frac{e^{-x^2/2}}{Z}\\
@@ -132,6 +137,128 @@ In the case $t \simeq t_f \gg 1$
 See Ho Jain Abbeel (NeurIPS 2020).
 
 
+\subsection{The Score}
+\begin{theorem}
+	[Tweedie's Formula]
+\end{theorem}
+Consider your probability $p_t(x) = \int da ~p_0(a) \frac{ e^{-(x-a e^{-t})^2 / (2 \Delta_t)}}{\sqrt{2 \pi\Delta_t}}$. This means the joint probability $p_t(a,x) = p_0(a) \mathcal N(x; a e^{-t}, \Delta_t)$ (where $a$ is $x_{t=0}$). The score of $p_t(x)$ becomes
+\begin{align}
+	\varphi = \nabla_x \log p_t(x)&  = \frac{1}{p_t(x)} \int da~ p_0(a) \frac{-(x-ae^{-t})}{\Delta_t} \frac{e^{-(x-ae^{-t})^2}/(2\Delta_t)}{\sqrt{2\pi \Delta_t}} \\
+	& = - \frac{x}{\Delta_t} + \frac{e^{-t}}{\Delta_t} \langle a \rangle_{x,t}
+\end{align}
+where $\langle a \rangle_{x,t} = \int da ~ a~ P(a | x,t) = \frac{\int da~ a~p_0(a) e^{-(x-a e^{-t})^2/2\Delta t}}{\int da ~p_0(a) e^{-(x-a e^{-t})^2/2\Delta t}}$
+\subsection{Approximating the Score}
+Say $p_0$ is unknown, but we have a dataset $\{a^\mu\}_{\mu=1}^n \sim_{iid} p_0$. We will parameterize an estimate of the score $\varphi_\theta(x,t)$, so now we need a loss function to minimize. A typical loss function is
+\begin{align}
+	\mathcal L = \int_0^{t_f} \lambda(t) \underbrace{\mathbb E_{x \sim p_t}[|\varphi_\theta(x,t) - \nabla \log p_t(x)|^2]}_{L^t}
+\end{align} 
+The $\lambda(t)$ is a Lagrange multiplier throughout time. Let's inspect the $L^t$ term. If you integrate by parts you can show
+\begin{align}
+	L^t & = \mathbb E_x [|\varphi_\theta(x,t)|^2 - 2\varphi_\theta(x,t)\cdot \nabla \log p] + \text{Constant}\\
+	-2 \mathbb E[\varphi_\theta(x,t) \cdot \nabla \log p] & = -2 \int dx \int da p_0(a) \frac{x - ae^t}{\Delta_t} \frac{e^{-(x-a e^{-t})^2 / 2\Delta_t}}{\sqrt{2\pi \Delta_t}} \varphi_\theta(x,t)\\
+	\therefore L^t &= \mathbb E_{a\sim p_0} \mathbb E_{x\sim p_{OU}(x|a)} \Big [\Big|\varphi_\theta(x,t) + \frac{x - a e^{-t}}{\Delta_t}\Big|^2 \Big]
+\end{align} 
+Because the OU process has the dynamics
+\begin{align}
+	x = a e^{-t} + z \sqrt{\Delta_t} \implies \frac{x -ae^{-t}}{\Delta_t} = \frac{z}{\sqrt{\Delta_t}}
+\end{align}
+where $z \sim \mathcal N(0,1)$, this implies that $L^t$ is heuristically $\mathbb E_z [|\varphi_\theta(a e^{-t} + z\sqrt{\Delta_t}, t) + z|^2]$, so you can interpret this as matching noise $z$!
+\subsection{Various Scores}
+\subsubsection{Perfect Score}
+Consider the model
+\begin{align}
+	p_0(a) = \frac{e^{-E(a)}}{Z}, ~ \varphi(x,t) = \frac{1}{\Delta_t} (-x + e^{-t}\langle a \rangle_{x,t})
+\end{align}
+asdf
+\begin{align}
+	p(a|x,t) = \frac{1}{Z(x)} p_0(a) e^{-(x - a e^{-t} )^2/ 2 \Delta_t}
+\end{align}
+
+\begin{sidework}
+	See KPZ and Burger's Equation...
+\end{sidework}
+
+\subsubsection{Empirical Score}
+If you only have a database $\{a^\mu\}_{\mu=1}^n$, the best thing you can do is $p_0^{emp} = \frac{1}{n} \sum_{\mu=1}^n \delta(a - a^\mu)$. This means our OU processed empirical becomes
+\begin{align}
+	p_t^{emp}(x) = \frac{1}{n} \sum_{\mu=1}^n \frac{e^{(x-a^\mu e^{-t})^2 / 2\Delta_t}}{(2\pi \Delta)^{n/2}}
+\end{align}
+Notice this is just a Gaussian mixture model. The empirical score is
+\begin{align}
+	\varphi^{emp}(t,x) & = \nabla \log p_t^{emp}(x) \\
+	& = \sum_\mu - \frac{x - a^\mu e^{-t}}{\Delta_t} e^{-(x - a^\mu e^{-t})^2/2\Delta_t} \Big / \sum_\mu e^{- (x - a^\mu e^{-t})^2 / 2\Delta_t} 
+\end{align}
+
+\subsubsection{Fitted Score}
+\begin{align}
+	\mathcal L & = \mathbb E_{a,x \sim p_t(a,x)} [ \varphi_\theta(x,t) + \frac{x - a e^{-t}}{\Delta_t}|^2\\
+	& = \frac{1}{n} \sum_\mu \mathbb E_{z \sim \mathcal N(0,1)} \left [ \varphi_\theta(x^\mu, t) + \frac{z}{\sqrt{\Delta_t}} \right]
+\end{align} 
+where $x^\mu = a^\mu e^{-t} + z \sqrt{\Delta_t}$ is the input noised via OU process.\\
+\\
+Unfortunately there's not much more we can do with this, we must now put it on the computer and see what comes out.
+
+\subsubsection{More General Time + Variance}
+Instead of just using OU process, what if we noise the image according to
+\begin{align}
+	\frac{dx_i}{dt} = f_i(t) x_i + g_i(t) \eta_i(t)
+\end{align}
+where $x = (x_1, ..., x_d)$ and boundary condition $x(t=0) = a_i \sim p_0(a)$. This yields a PDE on the probability $\text{Law}(x(t)) \sim p_t$, this is
+\begin{align}
+	p_t(x) & =  p_0(a) \frac{e^{-(x - a s(t))^2/ 2s(t)^2 \sigma(t)^2}}{\sqrt{2 \pi s(t) \sigma(t)}}\\
+	\implies \varphi(x,t) = \nabla \log p_t(x) & =  - \frac{x}{s(t)^2 \sigma(t)^2} + \frac{s(t)}{s(t)^2 \sigma(t)^2} \langle a \rangle_{x,t}
+\end{align}
+
+
+\section{A First Example: Gaussian Data}
+Consider your data's distribution is $p_0 = \mathcal N(m, \Sigma)$. We'll notate $\sum_{ij} a_i \Sigma_{ij}a_j = \langle a | \Sigma | a \rangle$ using bra-ket notation.  So this means our noised distribution is
+\begin{align}
+	p(a,x,t) = \frac{e^{-\frac{1}{2} \langle a-m  | \Sigma^{-1}  | a - m \rangle}}{\sqrt{2\pi}^d \sqrt{\det \Sigma}} \frac{e^{-\frac{1}{2 \Delta_t}(x - ae^{-t})^2 }}{\sqrt{2\pi \Delta_t}^d}
+\end{align}
+So our marginalized distribution on $p_t(x)$ becomes
+\begin{align}
+	p_t(x) = \int da~ p(a,x,t)= \mathcal N(m e^{-t}, \Gamma_t)
+\end{align}
+where $\Gamma_t = \Delta_t \mathbb I_d + e^{-2t} \Sigma$. 
+\subsubsection{Perfect Score}
+\begin{align}
+	\nabla \log p_t = - (\Gamma_t^{-1})(x - m e^{-t})
+\end{align}
+In the case when $t \gg 1$: you recover $\nabla \log p_t = -x$ (so it's a Gaussian!). In $t \ll 1$: $\nabla \log p_t \sim (\Sigma...)$ 
+
+\subsubsection{Optimized Score}
+Now your objective is to construct a parameterized score $\varphi_\theta$ from data $\{a^\mu\}_\mu \sim_{iid} p_0$. If you're smart you know that the answer must be linear, so let's ansatz our parameterized score as
+\begin{align}
+	\varphi_\theta(x,t) = - W x - b \label{eqn:18.0.2_Ansatz}
+\end{align}
+Now we can argmin the loss. However, we'll assume the case when $m = 0$ and $b=0$.
+\begin{align}
+	\mathcal L(t) = \mathbb E_{a \sim p_0^{emp}} \mathbb E_{x \sim \mathcal N(a e^{-t} , \Delta_t \mathbb I)} | \varphi_\theta(x,t) = \frac{x - a e^{-t}}{\Delta_t}|^2
+\end{align}
+where $x = a^\mu e^{-t} + \sqrt{\Delta_t} z$ is the noised initial data according to OU. Plugging in our ansatz (\ref{eqn:18.0.2_Ansatz}), we get
+\begin{align}
+	|\varphi_\theta(x,t) + \frac{x- a^\mu e^{-t}}{\Delta_t}|^2 & = |- W (a^\mu e^{-t} + \sqrt{\Delta_t} z) + \frac{z}{\sqrt{\Delta_t}}|^2\\
+	L^t = \mathbb E_z [|\varphi_\theta(x,t) + \frac{x- a^\mu e^{-t}}{\Delta_t}|^2] & =  \frac{1}{\Delta_t} \text{Tr}[(\mathbb I - \Delta_t W)^T (\mathbb I - \Delta_t W)]  + \frac{e^{-2t}}{\Delta_t} \langle a^\mu | W^T W | a^\mu\rangle
+\end{align}
+We note that $\langle a^\mu |W^T W | a^\mu\rangle = \text{Tr} (W^T W C^e)$ where $C^e_{ij} = \frac{1}{n} \sum_\mu a_i^\mu a_j^\mu = \frac{1}{n} aa^T$ is the empirical correlation function. Finally let's optimize over $W$ to find the minimum of the loss
+\begin{align}
+	\frac{\partial L^t}{\partial W} = 0 \implies W_{opt} = [(1 - e^{-2t}) \mathbb I + e^{-2t} C^e]^{-1}	
+\end{align}
+So in the limit as your amount of data $n \to \infty$, you find that $C^e \to \Sigma$ and $W_{opt} \to W_{perfect}$.
+\begin{sidework}
+	We can attempt to generalize some of these results using Random Matrix Theory.\\
+	\\
+	Say for example the covariance matrix $\Sigma$ gets some Gaussian Noise. Meaning I observe an empirical noisy covariance $H$
+	\begin{align}
+		H = \Sigma + \frac{1}{d^{a/2}} G
+	\end{align}
+	where $G \sim \text{GOE}(d)$. There are known results on this (since $\Sigma \approx aa^T$ is a rank-1 perturbation).
+	\begin{itemize}
+		\item When $a > 1$: Eigenvalues of eigenvectors of $H$ are on the order of eigenvalues/vectors of $\Sigma$. Only in this case will your reconstruct the original distribution.
+		\item If $a \in (0,1)$, the eigenvalues of $H$ are on the order of $\Sigma$, however the eigenvectors differ in directions.
+	\end{itemize}
+	The lesson to be learned is that, what you find for Isotropic Gaussian, is not same for high-covariance Gaussian.
+\end{sidework}
 
 
 
