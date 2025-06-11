@@ -16,7 +16,7 @@ jobs:
       - name: Compile LaTeX document
         uses: xu-cheng/latex-action@v3
         with:
-          root_file: tex/main.tex
+          root_file: main.tex
       
       - name: Setup Pages
         uses: actions/configure-pages@v5
