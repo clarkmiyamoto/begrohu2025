@@ -1,5 +1,5 @@
 %%% Document Formatting
-\documentclass[12pt,fleqn]{article}
+\documentclass[12pt,fleqn]{book}
 \usepackage[a4paper,
             bindingoffset=0.2in,
             left=0.75in,
@@ -74,46 +74,46 @@
 \begin{document}
 
 \maketitle
-\begin{abstract}
-	A set of lecture note from the Beg Rohu Summer School in 2025. If any of the other participants would like to collaborate on these notes, please reach out to me!
-\end{abstract}
+\section{Introduction}
+These are a set of lecture note from the Beg Rohu Summer School in 2025. If any of the other participants would like to collaborate on these notes, please reach out to me! In particular, if someone had better notes from Elena's talk, that would be super helpful!
+
 
 \tableofcontents
 \newpage
 
-\part{Agliari: Information Processing in Hebbian Networks}
+\chapter{Elena Agliari: Information Processing in Hebbian Networks}
 \input{agliari}
 \newpage
 
-\part{Olivier Dauchot: Swarm Robotics as Smart Active Matter}
+\chapter{Olivier Dauchot: Swarm Robotics as Smart Active Matter}
 \input{dauchot}
 \newpage
 
-\part{Julia Kempe: Synthetic Data}
+\chapter{Julia Kempe: Synthetic Data}
 \input{kempe}
 \newpage
 
-\part{Jean R\'emi King: Geometry of Thought}
+\chapter{Jean R\'emi King: Geometry of Thought}
 \input{king}
 \newpage
 
-\part{Yann LeCun: Self Supervised Models}
+\chapter{Yann LeCun: Self Supervised Models}
 \input{lecun}
 \newpage
 
-\part{St\'ephane Mallat: Score Based Diffusion \& Renormalization Group Flow}
+\chapter{St\'ephane Mallat: Score Based Diffusion \& Renormalization Group Flow}
 \input{mallat}
 \newpage
 
-\part{Marc M\'ezard: Statistical Physics of Generative Diffusion}
+\chapter{Marc M\'ezard: Statistical Physics of Generative Diffusion}
 \input{mezard}
 \newpage
 
-\part{Arvind Murugan: Learning without Neurons}
+\chapter{Arvind Murugan: Learning without Neurons}
 \input{murugan}
 \newpage
 
-\part{Etc.}
+\chapter{Etc.}
 
 \section{People Presentations} 
 \begin{enumerate}
@@ -121,6 +121,13 @@
 	\item Claudian Merger. Mappping normalizing flows to $\phi^n$ theory.
 \end{enumerate}
 
+\section{Q\&A}
+\textbf{Question:} What is the manifold hypothesis? Could you give me a test for computing the effective dimension of such a manifold? (@Marc Mezard)
+\\
+\\
+\textbf{Answer:} It is not a hypothesis, it's a fact. We observe that data often has an effective dimension $d_{eff}$ which is significantly lower than the original data. An algorithm which can get you $d_{eff}$, is your perform KNN on your data, and see $k$ which has "decent" enough performance. This algorithm obviously abstracts away manifold properties,
+
+ 
 \section{Acknowledgements}
 Thank you to Prof. David Hogg \& the Flatiron Institute for providing funding for this trip!
 
