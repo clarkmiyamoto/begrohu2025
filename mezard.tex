@@ -260,15 +260,235 @@ So in the limit as your amount of data $n \to \infty$, you find that $C^e \to \S
 	The lesson to be learned is that, what you find for Isotropic Gaussian, is not same for high-covariance Gaussian.
 \end{sidework}
 
+\section{Related Approaches i.e. ODE, Stochastic Localization, \& Interpolants}
+\subsection{Ordinary Differential Equations}
+Consider the stochastic differential equation
+\begin{align}
+	\dot x = F(x) + \eta(t)
+\end{align}
+where $\langle \eta \rangle = 0$ and $\langle \eta(t) \eta(t') \rangle = 2 \delta(t- t')$. It has an associated time evolution on $\text{Law}(x_t) = p_t$
+\begin{align}
+	\frac{\partial p}{\partial t} = \Delta p - \nabla (F p) = \nabla (F p - \nabla p)
+\end{align}
+So if we introduce the function $g(x) = F(x,t) - \varphi(x,t)$ (where $\varphi = \nabla_x \log p_t(x)$ denotes the score). Then you get the \textbf{continuity equation} (Mezard calls this a ``flow equation'').
+\begin{align}
+	\frac{\partial p}{\partial t} + \nabla (g(x,t) p) = 0
+\end{align}
+Using this transformation, we now see our forward stochastic differential equation is
+\begin{align}
+	\dot x = g(x,t)
+\end{align}
+\begin{sidework}
+	There's an interesting paper (\url{https://arxiv.org/abs/2006.00702}) which shows how to estimate the solution to the Fokker Planck equation by using a mean-field limit of evolving many particles. Could be cool.
+\end{sidework}
+Anyways, what is the flow for the backwards process
+\begin{align}
+	\frac{dx}{d\tau} = F^B(x,\tau) = \eta(\tau)\\
+	F^B (x,\tau) = 2 \varphi(x,\tau)\\
+	\frac{dp^B}{d\tau} + \nabla(p^B (F^B(x,\tau) - \nabla \log p^B)) = 0\\
+	\implies \dot x = x + \varphi(x,t)
+\end{align}
+\begin{sidework}
+	So you might be tempted to say we should do this over diffusion, as you don't have to sampling random numbers in the dynamics... However it is (said in the literature to be) harder to sample multimodal distributions.
+\end{sidework}
+\subsection{Example with Isotropic Gaussian}
+Consider the target distribution
+\begin{align}
+	p_0(a) = \frac{e^{-|a|^2/2 \sigma^2}}{\sqrt{2\pi \sigma^2}}
+\end{align}
+The interpolated distribution (via OU process) is
+\begin{align}
+	p_t(x) = \frac{e^{|x|^2/2\Gamma_t}}{\sqrt{2\pi \Gamma_t}} \implies \varphi(x,t) = \nabla_x \log p_t(x) = -x/\Gamma_t
+\end{align}
+And our ODE is
+\begin{align}
+	\dot x = \frac{x}{1 + (\sigma^2 - 1) e^{-2 (t_g - \tau)}}
+\end{align}
 
+\subsection{Stochastic Interpolants}
+For the original method, see Albergo \& Vanden-Eijnden.  What they realized is that we start with some inital distribution $p_0$ and we map it to a final gaussian $p_{final} \propto e^{-x^2/2}$. \\
+\\
+At each time $t$ , you generate $x(t) = \alpha(t) a + \beta(t) z$ (where $z \sim \mathcal N(0,\mathbb I)$). And since you want to recover $x_{t=0} \sim p_0$ and $x_{t=t_f} \sim p_{final}$ we assert boundary conditions $\alpha(0) = 1, \beta(0) = 0$ and $\alpha(t_f) = 0 , \beta(t_f) = 1$, which asserts $x(0) = a$ and $x(t_f) = z$. We denote $\alpha,\beta$ as the \textbf{interpolant}. \\
+\\
+So what you should have noticed is that we don't assert any Langevin. We just assert our interpolation scheme. This allows for flexibility in the engineering process! If we assert $\text{Law}(x_t) = p_t(x)$, we can once again derive a time evolution on the probability distribution
+\begin{align}
+	p_t(x|a) & = \frac{e^{-\frac{1}{2\beta(t)^2}|x-\alpha(t) a|^2}}{\sqrt{2\pi \beta(t)^2}^d}\\
+	p(a|x,t) & = \frac{1}{Z}p_0(a) e^{-\frac{1}{2\beta(t)^2} |x-\alpha(t) a|^2}
+\end{align} 
+And this probability distribution satisfies
+\begin{align}
+	\frac{\partial p_t}{\partial t} + \nabla (b(x,t) p_t(x)) = 0 \label{eqn:stochasticInterpolant_probability}
+\end{align}
+where $b(x,t) = \mathbb E_{a,z} [\dot \alpha a + \dot \beta z | \alpha a+ \beta z = x]$. 
+\begin{sidework}
+	Let's prove this!
+	\begin{align}
+		p_t(x) = \int da~ p_0(a) \int \mathcal Dz \delta(x - (\alpha(t) a + \beta(t) z))
+	\end{align}
+	Plugging this into the continuity equation
+	\begin{align}
+		\frac{\partial p_t(x)}{\partial t} & = - \int da~ p_0(a) \int \mathcal Dz ~[\dot \alpha(t) a + \dot \beta(t)z] \dot \nabla \delta(x - (\alpha(t) a + \beta(t) z))\\
+		& = - \nabla \cdot \left[ p(x,t) \int da ~p_0(a) \int \mathcal Dz [\dot \alpha a + \dot \beta z] \frac{\delta (x - (\alpha a + \beta z))}{p(x,t)} \right]
+	\end{align}
+	So you'll notice, $\int da ~ p_0(a) \int \mathcal Dz~[\dot \alpha a + \dot \beta z] \frac{\delta(x - (\alpha a  +\beta z)}{p(x,t)} = \mathbb E_{a,z} [ \dot \alpha a  + \dot \beta z | \alpha a  + \beta z = x]$, which is $b(x,t)$.\\
+	\\
+	QED.
+\end{sidework}
+Why bring this up? Well diffusion is just a subset of potential stochastic iunterpolants where
+\begin{align}
+	z = \frac{x - \alpha a}{\beta}, b(x,t) = \frac{e^{-2t}}{\Delta _t x - \frac{e^{-t}}{\Delta_t}} \langle a \rangle_x
+\end{align}
 
+\subsection{Unifying Framework for Langevin, ODE, and Stochastic Interpolants}
+Starting from the continuity equation for stochastic interpolants (\ref{eqn:stochasticInterpolant_probability}). If we ansatz $b$
+\begin{align}
+	b_\lambda^F(x,t) = b(x,t) + \lambda \varphi(x,t)
+\end{align}
+Then the continuity equation becomes
+\begin{align}
+	\frac{\partial p_t}{\partial t}  + \nabla\cdot (b_\lambda^F(x,t) p_t) = \lambda \nabla \cdot (\varphi(x,t) p_t) = \lambda \Delta p_t
+\end{align}
+You now have a Fokker Planck equation which emits a SDE interpretation
+\begin{align}
+	\frac{dx}{dt} = b_\lambda^F(x,t) + \sqrt{\lambda} \eta(t)
+\end{align}
+If we look at a couple cases
+\begin{itemize}
+	\item $\lambda = 1$ we recover our usual Langevin
+	\item $\lambda = 0$ we recover ODE (flow based methods)
+\end{itemize}
 
+\subsection{Stochastic Localization}
+For the original, see R. Eldan (2013, 2020, 2022); El Aloni Montanar Selke (2022); Montanari (2023).\\
+\\
+Montanari's "interpolant" is of the form
+\begin{align}
+	x(\tau) = a\tau + \sqrt{\tau} z
+\end{align}
+where $z \sim \mathcal N(0, \mathbb I)$. You now find that
+\begin{align}
+	p_\tau(x|a) = \frac{1}{\sqrt{2\pi \tau}^d} e^{-\frac{\tau}{2}(\frac{x}{\tau} - a)^2}
+\end{align}
+When I look at the limit $\tau \to \infty$, you get $\frac{x}{\tau} \to a$. You can think of this as performing a random walk where you converge to $a$, but your variance explodes.\\
+\\
+Looking at the conservation equation
+\begin{align}
+	\frac{\partial p_\tau(x)}{\partial \tau} + \nabla \cdot (bp) = 0\\
+	\text{s.t. } b(x,\tau)= \mathbb E[a + \frac{1}{2\sqrt \tau} z | a \tau + \sqrt{\tau} z + x]  = \frac{x}{2\tau} + \frac{1}{2}\langle a \rangle_{x,\tau}
+\end{align}
+And once again using Fokker Planck, you get the SDE
+\begin{align}
+	\dot x = \langle a \rangle_{x,t} + \eta(\tau)
+\end{align}
+\subsubsection{Example on EBM}
+Consider the exponential family distribution $p(a) = e^{- \beta E_0(a)}/Z$ where $\sum_{i=1}^d a_i^2 = d$ and $E_0(a) = - \sum_{i < j < k} J_{ijk} a_i a_j a_k$ (which is a $p=3$ spin glass).\\
+\\
+We know as a function of temperature, we know there's a low temperature spin glass phase ($\beta > \beta_{k}$),  high temperature phase $(\beta < \beta_{d})$, and there's an intermediate phase $\beta \in [\beta_{d}, \beta_{k}]$. In the glassy \& intermediate phase, MCMC / Langevin don't work (because of critical slowing down).
+\begin{align}
+	p(a|x) = e^{\beta \sum J_{ijk} a_i a_j a_k  - \gamma \sum_i (a_i -  x_i)^2} 
+\end{align}
+Let's inspect the phase diagram as we tune the pinning field $\gamma(\tau)$ (s.t. $\gamma(\tau = 0) = 0$ and $\gamma(\tau = \infty) = \infty$). 
 
+What this suggests is that below $T_{crit}$, diffusion cannot sample well, while BP still can. (What Mezard means by this is that we can use BP to compute marginals / expectation values without sampling. This is NOT contradictory to UNets can realized BP algorithms because that paper talks about using BP for sampling).
 
+\section{Curie Weiss Model}
+Consider the target distribution over varaibles $a \in \{\pm 1\}^d$
+\begin{align}
+	p_0(a) & = \frac{1}{Z} e^{-\frac{\beta}{2d}(\sum_i a_i)^2} \\
+	p_0(a)& = \frac{1}{Z} \int dm e^{- \frac{\beta d}{2} m^2 + \beta m \sum_i a_i} & \text{Introduced auxiliary variable } m
+\end{align}
+So now you have a joint distribution $p_0(m, a)$. If you then marginalize over $a$, you get
+\begin{align}
+	p_0(m) =\frac{1}{Z} e^{- \beta d [ \frac{m^2}{2} - \frac{1}{\beta} \log (\cosh(\beta m))]}
+\end{align}
+The free energy $F(m)$ has a minimum at $m = \tanh \beta m$ (self consistency equation). While this is nice, for the purposes of pedagody, let's look at a a slightly simpler model (modified Curie Weiss), which has the following distribution
+\begin{align}
+	p_0(a) = \frac{1}{2} \underbrace{\prod_i \frac{e^{\beta m^* a_i}}{2 \cosh(\beta m^*)}}_{\equiv p^+(a)} + \frac{1}{2} \underbrace{\prod_i \frac{e^{- \beta m^* a_i}}{2 \cosh (\beta m^*)}}_{\equiv p^-(a)}
+\end{align} 
+meaning you have $\mathbb P[m= \pm m^*] = 1/2$.
 
+\subsection{Generative Diffusion w/ Perfect Score}
+The probability distribution endowed via the OU process becomes
+\begin{align}
+	p_t(x,a) & = \frac{1}{2} p_t^+(x,a) + \frac{1}{2} p_t^-(x,a)\\
+	\text{where } p_t^{\pm}(x,a) & = \prod_i \frac{e^{-(x^2_i - e^{-2t})/2\Delta_t}}{\sqrt{2\pi \Delta_t}^d} \prod_i \frac{e^{(\pm \beta m^* + x_i e^{-t}/\Delta_t)a_i}}{2 \cosh(\pm \beta m^* + x_i e^{-t} /\Delta_t)}
+\end{align}
+we can compute the score via Tweedy's Formula. 
+\begin{align}
+	p_t(a |x) = \frac{1}{Z} \left( \prod_i e^{(\beta m^* + x_i e^{-t}/\Delta_t) a_i}  + \prod_i e^{(-\beta m^* + x_i e^{-t}/\Delta_t) a_i} \right)
+\end{align}
+Now we can compute $\langle a\rangle_{x,t}$ (which takes two pages of calculation in Mezard's notes)
+\begin{align}
+	\langle a_i \rangle_{x,t} & = \frac{Q_+(x) \tanh(\beta m^* + x_i \frac{e^{-t}}{\Delta_t}) +  Q_-(x) \tanh(- \beta m^* + x_i \frac{e^{-t}}{\Delta_t})}{Q_+(x) + Q_-(x)}\\
+	\text{s.t. } Q_{\pm}(x) & = \prod_j(1 \pm m^* \tanh (x_j e^{-t}/ \Delta_t))
+\end{align}
+The backwards langevin becomes
+\begin{align}
+	\frac{dx_i}{d\tau} & = x_i  + 2\varphi_i(x,\tau) + \eta_i(\tau)\\
+	\text{s.t. }\varphi_i(x,\tau) & = - \frac{x_i}{\Delta_{t_g - \tau}} + \frac{e^{-(t_f -\tau)}}{\Delta_{t_f -\tau}} \langle a_i \rangle_{x, t_f-\tau}
+\end{align}
+\subsection{Speciation Transition}
+\textbf{In the Regime ${t = t_{f} - \tau \gg 1}$} (so you're at the beginning of the backwards process). Then
+\begin{align}
+	Q_{\pm}(x) & \underset{t \gg 1}{\to} \exp\left(\pm m^* \frac{e^{-t}}{\Delta_t} \sum_j x_j \right) & \text{Linearized tanh(...)}
+\end{align}
+The Langevin equaiton in this limit becomes
+\begin{align}
+	\frac{dx_i}{d\tau} = x_i(1 - \frac{2}{\Delta_t} ) + 2 m^* \frac{e^{-t}}{\Delta_t} \tanh [m^* \frac{e^{-t}}{\Delta_t} \sum_j x_j] + \eta_i(t)
+\end{align}
+Each variable $x_i$, time-evolves \emph{almost} independently and is coupled via the order parameter (which ends up being the magnetization $m^*$)! We now introduce an order parameter $\mu$
+\begin{align}
+	\mu = \frac{1}{\sqrt{d}} \sum_{i=1}^d x_i
+\end{align}
+Now we can ask the question what is the time-evolution of $\mu$ just by summing $x_i$
+\begin{align}
+	\frac{d\mu}{d\tau} & = - \mu + 2 m^* \sqrt{d} e^{-t} \tanh(m^* \sqrt{d} e^{-t} \mu) + \eta(\tau)\\
+	& =- \frac{\partial V_\tau(\mu)}{\partial \mu} + \eta(\tau)
+\end{align}
+where $V_\tau(\mu) = \frac{1}{2}\mu^2 - 2 \log \cosh(m^* \sqrt{d} e^{-t} \mu)$.
+\begin{sidework}
+	In the regime $\sqrt{d}e^{-t} \ll 1$, we see that $V_\tau(\mu) \simeq \mu^2$.\\
+	\\
+	In the regime $\sqrt{d} e^{-t} \gg 1$, you find $\log \cosh(...) \to  |\mu| m^* \sqrt{d} e^{-t}$, meaning $V_\tau(\mu) \simeq \mu^2  + |\mu|$ (it has symmetry breaking!).\\
+	\\
+	This means there's some characteristic time-scale $t_{sp}$ (which Mezard calls the speciation time), in which the samples must choose wether to the positive magnetization distribution or the negative magnetization distribution. \\
+	\\
+	In this particular example $t_{sp} = \frac{1}{2}\log d$
+\end{sidework}
+\begin{sidework}
+	\textbf{Experimental measurements of speciation}
+	\begin{itemize}
+	\item Cloning (see Biroli, Bonnaic, De Bortali). Imagine you have one partical, and you run it through backwards Lagevin $\partial_t x_1 = x_i + 2 \varphi(x,t)$. Once it gets to a specific time, we clone it, and then ask "what is the probability that the two clones go to the same class?". Repeat for many different times, and hopefully you can experimentally measure hte speciation time.
+	\item U-Turn (see Behjoo-Cherthov). Start at a point in the database, and then put it through the forward process and arrive at a specific time. Now you let it evolve backwards using Langevin, and ask the quesiton if it goes back to the same class or a new class. Repeat for many different times.
+\end{itemize}
+\end{sidework}
+\textbf{In the Regime (II)} $t < t_{sp}$. \\
+\\
+Analysis reveals that $\frac{Q_-(x)}{Q_+(x)} \sim e^{- a d}$. This allows us to say
+\begin{align}
+	\langle a_i \rangle_{x,t} & = \tanh \left(\beta m^* + x_i \frac{e^{-t}}{\Delta_t} \right)\\
+	\implies \frac{dx_i}{d\tau} & = x_i - 2 \frac{x_i}{\Delta_{t_f - \tau}} -2 \frac{e^{-(t_f-\tau)}}{\Delta_{t_f - \tau}} \tanh \left(\beta m^* + x_i \frac{e^{-t}}{\Delta_t} \right) + \eta(\tau)
+\end{align}
+So you can see the measure will concentrate from real-valued variables to a binary variables.
 
-
-
+\subsubsection{asdf}
+\begin{align}
+	p_t(x) &  = \int da~ p_0(a) \frac{e^{-(x - ae^{-t})^2/2\Delta_t}}{\sqrt{2\pi \Delta_t}^d}\\
+	& =  e^{-x^2/2\Delta_t}  e^{g(x)}
+\end{align}
+where $g(x) = \log \left [\int da ~ p_0(a) ~ e^{\frac{-1}{2} \frac{|a|^2 e^{-2t}}{\Delta_t} + \frac{e^{-t}}{\Delta_t} x\cdot a} \right]$. If we're interested in sampling high-dimensional distirbutions (that is we have a lot of spins) $d \gg 1$, this implies the speciation time will grow, so we'd like to inspect the limit $t \gg 1 \implies e^{-t} \ll 1$. Now we can do a "Landau-Type expansion of $g(x)$"
+\begin{align}
+	g(x) = \frac{e^{-t}}{\Delta_t} \sum_i x_i \langle a_i\rangle + \frac{1}{2} \frac{e^{-2t}}{\Delta_t} \sum_{ij} C_{ij} x_i x_j + \mathcal O(x^3)
+\end{align}
+where $C_{ij} = \langle a_i a_j \rangle_{p_0} - \langle a_i \rangle_{p_0} \langle a_j \rangle_{p_0}$. Plugging in this expansion back into $p_t(x)$, and then loging it, we get
+\begin{align}
+	\implies \log p_t(x) \approx c_0 + \sum_i x_i ... + \sum_{ij} \left ( - \frac{\delta_{ij}}{2 \Delta_t} + \frac{1}{2 \Delta_t} e^{-2t} C_{ij}\right) x_i x_j
+\end{align}
+Let's inspect the $\sum_{ij}$ term. This really looks like a matrix
+\begin{align}
+	M = \mathbb I - e^{-2t} C
+\end{align}
+so in $t \gg 1 \implies M \succ 0$. 
 
 
 

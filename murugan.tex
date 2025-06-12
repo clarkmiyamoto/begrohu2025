@@ -112,6 +112,20 @@ Where $J_{ij}$ is an interaction matrix between species (so $i = 1,..., N$ numbe
 Consider an Ising model of $N$ spins on a lattice. The place model now does all possible permutations of the spins with the same lattice structure.
 
 
+\section{June 12th}
+Today we'll talk about
+\begin{enumerate}
+	\item Computation with saddles as a polynimal classifier
+	\item Boltzmann machine training of physical systems
+\end{enumerate}
+\subsection{Boltzmann Machine Training: How can construct a phase-diagram however I want?}
+Consider a target distribution $Q(v)$, and a parameterizated distributino (Boltzmann Machine) $P(v)$. We train this distribution by performing gradient descent where the loss function is the KL divergence
+\begin{align}
+	\frac{d}{d\lambda}D_{KL}(Q(v) || P(v)) = - \underbrace{\langle \partial_\lambda E\rangle_{Q(v) P(h|v)}}_{wake}+ \underbrace{\langle \partial_\lambda E\rangle_{p(v,h)}}_{sleep}
+\end{align}
+
+
+
 
 
 

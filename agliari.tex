@@ -186,14 +186,79 @@ So now going back to $\mathcal H$, we can rewrite it int this notation as
 Now our goal is to compute $\langle m \rangle$. We can accomplish this by computing the free energy $f_N(\xi) = \frac{1}{N\beta} \log Z_n(\xi)$ and use it as the moment generating function.
 
 
+\section{SK Model}
 
 
 
 
 
 
+\section{Things to look at}
+Introductory
+\begin{itemize}
+	\item Cooolen, Kuhm Sollich. Theory of Neural Information Processing Systems
+	\item Bovier. Statistical Mechanics of Disordered Systems.
+\end{itemize}
 
 
+\section{Restricted Boltzmann Machine}
+Consider the model
+\begin{align}
+	p_\beta(\underline v, \underline h; w,\theta) & = \frac{e^{-\beta H(\underline v, \underline h; w,\theta)}}{Z}\\
+	\text{where }H(\underline v, \underline h; w,\theta) & = - \sum_{i, \mu} w_{i,\mu} v_i h_\mu - \sum_i v_i \theta_i - \sum_\mu h_\mu \theta_\mu
+\end{align}
+where $i = 1,..., N$ (number of visible spins), and $\mu = 1,..., K$ (number of hidden spins). This object can be used to learn a target probability distribution $q(\underline x, y)$, both in a supervised \& non supervised case.
+\subsubsection{Supervised Case}
+Our setup is $(\underline x^{(i)},y)_{i=1}^n$, where $\underline x^{(i)} \in [0,1]^d$ is your features, and $y \in \mathcal Y$ is your label / class. For MNIST, $d = 28 \times 28$ and $\mathcal Y = \{0,...,9\}$.
+
+This means in the RBM, $\underline v \in \{\pm 1\}^N$ where $N = 28*28 =784$, and $\underline h \in \{\pm 1\}^k$ where $k = 10$.
+
+\subsubsection{Unsupervised Case}
+In this case $\underline v \in \{\pm 1\}^N$ and $h$ are latent variables.
+
+\subsection{Training}
+To fit the RBM to the target probability distribution, we can minimize the KL divegence between them
+\begin{align}
+	D_{KL}(p || q) = \sum_{\underline v, \underline h} q(\underline v, \underline h) \log \frac{q(\underline v , \underline h)}{p(\underline v, \underline h)}
+\end{align}
+From here we evaluate this w.r.t. the hidden spins $\sum_{\underline h}$, and what you'll see
+\begin{align}
+	\Delta W_{i \mu} &= - \epsilon \frac{\partial D_{KL}}{\partial W_{i\mu}}\\
+	\Delta \theta_{i\mu} &= - \epsilon \frac{\partial D_{KL}}{\partial \theta_{i\mu}}
+\end{align}
+So computing out derivatives on $D_{KL}$ w.r.t. the parameters $\lambda = (W, \theta)$
+\begin{align}
+	\frac{\partial}{\partial_\lambda}D_{KL}(q || p) & = \frac{\beta}{\log(2)} \{ \mathbb E_q [\partial_\lambda H] - \mathbb E_p [\partial_\lambda H]\}\\
+	\implies & \begin{cases}
+		\Delta W_{i\mu} & = \frac{\epsilon \beta}{\log 2} \{ \mathbb E_q[v_i h_\mu] - \mathbb E_p [v_i h_\mu]\}\\
+	\Delta \theta_i & = \frac{\epsilon \beta}{\log 2} \{ \mathbb E_q[v_i] - \mathbb E_p[v_i] \}
+	\end{cases}
+\end{align}
+However these expectations are unaccessible. We can get around this by replacing
+\begin{align}
+	\mathbb E_q &\to \mathbb E_{\bar q}\\
+	\mathbb E_p &\to\text{MCMC}
+\end{align}
+where $\bar q$ is the empirical distribution of $q$.
+\subsubsection{Contrastive Divergence}
+Another way to get around having to compute $\mathbb E_p$ is to use Contrastive Diveregnece
+\begin{align}
+	D_{KL}(\bar q || p ) - D_{KL}(p_n || p)
+\end{align}
+where $p_n$ is the distribution of your data obtained by running the Markov Chain for $n$ steps.
+
+\section{Hopfield Model}
+Recall, we assumed that $\{\underline \xi^\mu\}_{\mu=1}^k$ is perfectly known, however in practice this is not the case. To model this, we can instead use the dataset $\{\underline \xi^{\mu, A}\}_{\mu = 1, ..., k; A = 1,..., n}$ where $\underline \xi^{\mu, A} = \underline \xi^\mu \odot \chi^{\mu, A}$ where $\chi^{\mu, A}_i \sim \text{Rad}(r)$ (which means you randomly flip enties of the data). $r \in [0,1]$ is a measure of the quality of the dataset, when $r = 0$ you have a completely scrambled dataset and $r = 1$ means you have a perfect dataset.\\
+\\
+\subsubsection{Supervised} In this case, we assume there is a teacher which has the empricial averag of the memories $\bar \xi_i^\mu \equiv \frac{1}{n}\sum^n_{i=1} \xi_i^{\mu, A}$. We then use this to train our couplings
+\begin{align}
+	J_{ij}^{sup} = \frac{1}{n} \sum_\mu \bar \xi_i^\mu \xi_j^\mu = \frac{1}{nm^2 } \sum_{\mu} \sum_{A,B} \xi_i^{\mu A} \xi_{j}^{\mu B}
+\end{align}
+
+\subsubsection{Unsupervised}  In the unsupervised cas,e we can do this instead.
+\begin{align}
+	J^{sup}_{ij} = \frac{1}{nm} \sum_{\mu, A} \xi_i^{\mu A} \xi_j^{\mu A}
+\end{align}
 
 
 
