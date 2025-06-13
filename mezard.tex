@@ -490,7 +490,88 @@ Let's inspect the $\sum_{ij}$ term. This really looks like a matrix
 \end{align}
 so in $t \gg 1 \implies M \succ 0$. 
 
-
+\section{Generalization vs Memorization in Diffusion Models}
+Consider the dataset $\mathcal D = \{a^\mu\}_{\mu = 1, ... ,n}$, meaning you have an empirical distribution $p_0^{emp}(a) = \frac{1}{n} \sum_\mu \delta(a - a^\mu)$. This means your empirical distribution (the data noised by the OU process) becomes $p_t^{emp}(x) = \frac{1}{n} \sum_\mu \frac{e^{-(x - a^\mu e^{-t})^2/2\Delta_t}}{\sqrt{2\pi \Delta_t}^d}$. This means your empirical score is $\varphi(x,t) = \nabla_x \log p_t^{emp}(x)$. \\
+\\
+Recall that a perfectly train system, that is you find a score which perfectly matches $\varphi$, then $p_0(\tau =t_f) = p_0^{emp}$. So in training your model, you actually want to do this, this would be useless.
+\begin{definition}
+	[Collapse Time] Marc defines a heuristic model collapse time. Basically you perform your experiment for $t_{spec}$ time, but instead of class, you see if it goes back to the same training data point.
+\end{definition}
+\subsection{Rigorous Calculation}
+Up until now, we have just been talking about heuristics. Here's let's attempt to do a rigorous calculation to find a collapse time.\\
+\\
+First let's define a quantity which is not-extensive w.r.t. dimension.
+\begin{definition}
+	[Entropy Criterion] 
+	\begin{align}
+		S(t) = - \frac{1}{d} \int dx ~ p_t(x) \log p_t(x)
+	\end{align}
+\end{definition}
+Our goal will be compare this to $n$ separated Gaussians
+\begin{align}
+	S^{sep}(t) & = \frac{\log n}{d} + \frac{1}{2} + \frac{1}{2} \log (2\pi \Delta_t) & \text{Separated Gaussians}
+\end{align}
+we'll denote the difference as the \textbf{excess entropy}
+\begin{align}
+	f(t) = S^{sep}(t) - S(t)
+\end{align}
+In the limit $t \gg 1$
+\begin{align}
+	S(t) \to \frac{1}{2}\log (2\pi e)\\
+	S^{sep}(t) \to \frac{\log n}{d} + \frac{1}{2} \log (2\pi e)
+\end{align}
+So to get any excess entropy, we'd need $\frac{\log n}{d} \sim \mathcal O(1)$, which means $n \sim \mathcal O(e^d)$ (the number of samples must be exponential in the number of dimensions / spins).
+\\
+\\
+Now let's setup our problem. Consider getting $n/2$ samples from $\mathcal N(m, \sigma^2 \mathbb I)$ and $n/2$ samples from $\mathcal N(-m, \sigma^2 \mathbb I)$. I noise these points using OU process
+\begin{align}
+	p_t^{emp}(x) = \frac{1}{n} \sum_\mu \frac{e^{-(x-a^\mu e^{-t})^2/2\Delta_t}}{\sqrt{2\pi \Delta_t}^d}
+\end{align}
+Let's inspect the collapse time on going to training data point $a^1$. At time $t$, your noised trajectory is $x = a^1 e^{-t} + z \sqrt{\Delta_t}$. So we can decompose our model as
+\begin{align}
+	p_t(x) = \frac{1}{n\sqrt{2\pi \Delta_t}^d} (z_1 + z_{2, ..., n})
+\end{align}
+where $z_1 = e^{-(x - a^1 e^{-t})^2/2\Delta_t}$ and $z_{2, ..., n} = \sum_{\mu=2}^{n/2} e^{-(x - a^\mu e^{-t})^2/2\Delta_t} + \sum_{\mu = n/2 + 1}^n e^{-(x - a^\mu e^{-t})^2/2\Delta_t}$. The decomposition of $z_{2...n}$ is quite big so let's denote $\mathcal Z_+ \equiv \sum_{\mu=2}^{n/2} e^{-(x - a^\mu e^{-t})^2/2\Delta_t}$ and $\mathcal Z_{-} = \sum_{\mu = n/2 + 1}^n e^{-(x - a^\mu e^{-t})^2/2\Delta_t}$.\\
+\\
+In the large $d$, large $n$ limit, 
+\begin{align}
+	\mathcal Z_{\pm} & \sim e^{-d \psi_{\pm}}\\
+	z_1 & = e^{- |z|^2/2} \simeq e^{-d/2}
+\end{align}
+which $\psi_{\pm}$ is the large deviation free entropy.
+\begin{align}
+	p_t^{emp} \propto (z_1 + e^{-d \psi_+} + e^{-d \psi_-})
+\end{align}
+Cases
+\begin{itemize}
+	\item If $\psi_+ < \frac{1}{2}$, this means $z_1$ is negligable. Meaning you can pick out other data points. Therefore the model has NOT collapsed.
+	\item If $\psi_+ > \frac{1}{2}$, this means other terms are exponentially supressed w.r.t. $z_1$. Therefore you'll only recover $z_1$, hence the model has collapsed.
+\end{itemize}
+So what is $\psi_{\pm}$?
+\begin{align}
+	\mathcal Z_+ & = \sum_{\mu=2}^{e^{\alpha d /2}} e^{-d \epsilon^\mu}, ~~ \epsilon^\mu = \frac{(x - a^\mu e^{-t})^2}{2 \Delta_t d}\\
+	\psi_+ & = - \frac{1}{d} \log \mathcal Z_+
+\end{align}
+It's the free energy of the \textbf{Random Energy Model}. Marc said he's tired of teaching Replica Trick calculations hahaha, so he'll solve it with formal methods using large deviation theory.\\
+\\
+Fix $x = a^1 e^{-t} + z \sqrt{\Delta_t}$. If we assume $a^\mu$ are sampled iid, then this means $\epsilon^\mu$ are also iid. It turns out the probability distribution of $\epsilon$ becomes
+\begin{align}
+	p(\epsilon) \simeq_{d \to \infty} e^{d s(\epsilon)}
+\end{align}
+where $s(\epsilon)$ a concave function with a maximum $s(\epsilon_0) = 0$
+\begin{align}
+	\epsilon^\mu \sim \frac{1}{2d \Delta_t}(|x|^2 - |a^\mu|^2 e^{-2t})
+\end{align}
+However because our partition function has exponentially points, you can't just estimate the typical point.
+\begin{align}
+	\int d\epsilon ~p(\epsilon) e^{- \lambda d \epsilon} & = \int d\epsilon ~e^{d(s(\epsilon - \lambda \epsilon)}\\
+	\mathbb E_a[e^{- \lambda |x- ae^{-t}|^2/2\Delta_t}& = e^{d g(\lambda)}
+\end{align}
+where $g(\lambda) = \max_\epsilon (s(\epsilon) - \lambda \epsilon)$, which you find via inverse Legendre transform, which you see is $g(\lambda) = s(\epsilon)$.
+\begin{align}
+	\mathcal Z_+ = \frac{1}{2}e^{\alpha d} \int d\epsilon e^{d(s(\epsilon) -\epsilon)}
+\end{align}
+And you find the collapse time $t_{collapse} = \frac{1}{2} \log (1 + \frac{\sigma^2}{e^{2\alpha} - 1})$, where $e^{2\alpha} = n^{2/d}$. If you redo this calculation on a hidden manifold, $e^{2\alpha} \to e^{2/\text{dim(manifold)}}$.
 
 
 

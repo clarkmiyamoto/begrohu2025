@@ -128,12 +128,28 @@ I know diffusion, so my notes are coherent for Stephan and Marc's lectures. So f
 	\item Claudian Merger. Mappping normalizing flows to $\phi^n$ theory.
 \end{enumerate}
 
-\section{Q\&A}
+\section{Q\&A Sessions}
+\textbf{Question:} Can you give a mathematical definition of a representation? (@Yann LeCun)
+\\ \\ 
+\textbf{Answer:} [Jean Remi King laughed and thought this was a good question, Yann did not (and actually said he won't answer it), but then he changed his mind and answered it hahaha. I personally did not find his answer satisfying (in the sense he did not use math) so I did not write it down.]
+\\
+\\
+\\
 \textbf{Question:} What is the manifold hypothesis? Could you give me a test for computing the effective dimension of such a manifold? (@Marc Mezard)
+\\ \\
+\textbf{Answer:} It is not a hypothesis, it's a fact. We observe that data often has an effective dimension $d_{eff}$ which is significantly lower than the original data. An algorithm which can get you $d_{eff}$, is your perform KNN on your data, and see $k$ which has "decent" enough performance. This algorithm obviously abstracts away manifold properties, so this is only a statement about a subspace. 
 \\
 \\
-\textbf{Answer:} It is not a hypothesis, it's a fact. We observe that data often has an effective dimension $d_{eff}$ which is significantly lower than the original data. An algorithm which can get you $d_{eff}$, is your perform KNN on your data, and see $k$ which has "decent" enough performance. This algorithm obviously abstracts away manifold properties,
-
+\\
+\textbf{Question:} We've learned about different generalizations of diffusion (ODE / SDE/ Stochastic Interpolants / etc.)... Which one do we use for which types of problems? (@Marc Mezard)
+\\ \\
+\textbf{Answer:} This is an open problem (as of June 2025), unfortunately we don't know.
+\\
+\\
+\\
+\textbf{Question:} (@Marc Mezard) You've been mentioning diffusion for sampling, what is the current state of this research?
+\\ \\ 
+\textbf{Answer:} People are currently studying diffusion to assist MCMC... These are where the open problems are at the moment. In the context of lecture, we asked the question if diffusion models can sample where MCMC methods fail (i.e. in a glassy phase), the answer is no (see \url{https://arxiv.org/pdf/2502.16292v2}).
  
 \section{Acknowledgements}
 Thank you to Prof. David Hogg \& the Flatiron Institute for providing funding for this trip!
